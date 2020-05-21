@@ -104,6 +104,23 @@ fsb$Vessel=as.character(fsb$Vessel)
 fsbSummary=readWorksheetFromFile(
   file=filename,
   sheet=8,
-  startRow=1
+  startRow=0
+)
+fsbSummary=colnames(fsbSummary)
+## Make the text string human readable
+fsbSummary=gsub(
+  pattern="\\.\\.",
+  replacement="\\! ",
+  x=fsbSummary
+)
+fsbSummary=gsub(
+  pattern="\\.",
+  replacement=" ",
+  x=fsbSummary
+)
+fsbSummary=gsub(
+  pattern="\\!",
+  replacement="\\.",
+  x=fsbSummary
 )
 ## ---------------------------
