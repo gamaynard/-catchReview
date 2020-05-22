@@ -1,11 +1,11 @@
-Provider,FSB1,FSB2,ITIS,AFS
-Haddock(Haddock),Haddock(Haddock),Haddock(HADD),164744,HADDOCK
-Pollock(Atlantic pollock),Pollock(POLL),,164727,POLLOCK
-Atlantic Cod(Atlantic cod),Atlantic Cod(COD),,164712,ATLANTIC COD
-Atlantic Halibut(Atlantic halibut),Atlantic Halibut(HAL),,172933,ATLANTIC HALIBUT
-"Hake, NK(null)","Hake, NK(HAKNS)",,,UNKNOWN HAKE
-Atlantic Wolffish(Atlantic wolffish),Atlantic Wolffish(CAT),,171341,ATLANTIC WOLFFISH
-,American Plaice(FLDAB),,172877,AMERICAN PLAICE
-No Groundfish Discards(null),No Groundfish Discards(NGD),,,NO DISCARDS
-Ocean pout(Ocean pout),,,630979,OCEAN POUT
-Fish unknown(null),,,,UNKNOWN FISH
+Provider,FSB1,FSB2,Counts,ITIS,AFS
+Haddock(Haddock),Haddock(Haddock),Haddock(HADD),Haddock,164744,HADDOCK
+Pollock(Atlantic pollock),Pollock(POLL),,Pollock,164727,POLLOCK
+Atlantic Cod(Atlantic cod),Atlantic Cod(COD),,Atlantic cod,164712,ATLANTIC COD
+Atlantic Halibut(Atlantic halibut),Atlantic Halibut(HAL),,Atlantic halibut,172933,ATLANTIC HALIBUT
+"Hake, NK(null)","Hake, NK(HAKNS)",,"Hake, NK",,UNKNOWN HAKE
+Atlantic Wolffish(Atlantic wolffish),Atlantic Wolffish(CAT),,Atlantic wolffish,171341,ATLANTIC WOLFFISH
+,American Plaice(FLDAB),,American plaice flounder,172877,AMERICAN PLAICE
+No Groundfish Discards(null),No Groundfish Discards(NGD),,,,NO DISCARDS
+Ocean pout(Ocean pout),,,Ocean Pout,630979,OCEAN POUT
+Fish unknown(null),,,"Fish, NK",,UNKNOWN FISH
