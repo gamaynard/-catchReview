@@ -27,7 +27,6 @@
 
 ## Set options
 options(scipen = 6, digits = 4) # eliminate scientific notation
-memory.limit(30000000)     # increase PC memory allowance
 ## ---------------------------
 
 ## load up the packages we will need:  (uncomment as required)
@@ -149,12 +148,14 @@ fsbSummary=gsub(
 
 ## Create a blank reconciliation table
 recon=data.frame(
-  p_Timestamp=as.Date(character()),
-  f_Timestamp=as.Date(character()),
+  p_Timestamp=character(),
+  f_Timestamp=character(),
   p_Lat=double(),
   f_Lat=double(),
   p_Lon=double(),
   f_Lon=double(),
+  p_Desc=character(),
+  f_Desc=character(),
   p_Com=character(),
   f_Com=character(),
   p_Wgt=double(),
@@ -163,6 +164,25 @@ recon=data.frame(
   f_Len=double(),
   p_Quan=integer(),
   f_Quan=integer(),
-  
-  
+  SPECIES=character(),
+  p_Rev=character(),
+  f_Rev=character(),
+  notes=character(),
+  stringsAsFactors=FALSE
 )
+recon[0:nrow(provider),]=NA
+## Set parameters for comparison
+## Time Tolerance (seconds)
+timeTolerance=2
+## Latitude Tolerance (decimal degrees)
+## Longitude Tolerance (decimal degrees)
+for(i in 1:nrow(provider)){
+  p=provider[i,]
+  recon$p_Timestamp[i]=as.character(ymd_hms(p$Timestamp))
+  recon$p_Lat[i]=p$Latitude
+  recon$p_Lon[i]=p$Longitude
+  recon$p_Desc[i]=p$Description
+  recon$p_Com[i]=p$Comments
+  f=subset(fsb,fsb$Timestamp%in%seq(p$Timestamp-timeTolerance,p$Timestamp+timeTolerance,1))
+  
+}
