@@ -286,6 +286,46 @@ for(i in 1:nrow(exacts)){
     }
   } 
 }
+exacts$diff=abs(exacts$Match-exacts$Total)
+w2=readWorksheetFromFile(
+  file=filename,
+  sheet=7,
+  startRow=1,
+  endCol=4
+)
+## Eliminate "Grand Total" and extraneous notes lines that don't fit in the table
+w2=w2[1:which(w2$Species=="Grand Total")-1,]
+w2$SPECIES=NA
+## Use fuzzy matching to assign the most likely standardized species name based
+## on the existing species value
+for(i in 1:nrow(w2)){
+  ## if the Species value is not NA
+  if(is.na(toupper(w2$Species[i]))==FALSE){
+    ## calculate the minimum string distance from the existing species value to 
+    ## common non-standardized values
+    b=min(
+      stringdist(
+        a=toupper(w2$Species[i]),
+        b=toupper(species$PEBKAC)
+      )
+    )
+    ## assign the standardized value that matches the closest non-standardized
+    ## value
+    sv=species$AFS[
+      which(
+        stringdist(
+          a=toupper(w2$Species[i]),
+          b=toupper(species$PEBKAC)
+        )==b
+      )
+      ]
+    if(length(unique(sv))==1){
+      w2$SPECIES[i]=as.character(sv[1])
+    }
+  } 
+}
+exacts$w2=w2$X..2
+exacts$totalDiff=exacts$diff-exacts$w2
 ## The eighth sheet in the workbook is a summary file that is essentially a
 ## block of text, presumably produced by the FSB reviewer, describing any
 ## discrepencies between the outputs of the two reviews
@@ -313,43 +353,71 @@ fsbSummary=gsub(
 )
 ## ---------------------------
 
-## Create a blank reconciliation table
-recon=data.frame(
-  p_Timestamp=character(),
-  f_Timestamp=character(),
-  p_Lat=double(),
-  f_Lat=double(),
-  p_Lon=double(),
-  f_Lon=double(),
-  p_Desc=character(),
-  f_Desc=character(),
-  p_Com=character(),
-  f_Com=character(),
-  p_Wgt=double(),
-  f_Wgt=double(),
-  p_Len=double(),
-  f_Len=double(),
-  p_Quan=integer(),
-  f_Quan=integer(),
-  SPECIES=character(),
-  p_Rev=character(),
-  f_Rev=character(),
-  notes=character(),
-  stringsAsFactors=FALSE
-)
-recon[0:nrow(provider),]=NA
-## Set parameters for comparison
-## Time Tolerance (seconds)
-timeTolerance=2
-## Latitude Tolerance (decimal degrees)
-## Longitude Tolerance (decimal degrees)
-for(i in 1:nrow(provider)){
-  p=provider[i,]
-  recon$p_Timestamp[i]=as.character(ymd_hms(p$Timestamp))
-  recon$p_Lat[i]=p$Latitude
-  recon$p_Lon[i]=p$Longitude
-  recon$p_Desc[i]=p$Description
-  recon$p_Com[i]=p$Comments
-  f=subset(fsb,fsb$Timestamp%in%seq(p$Timestamp-timeTolerance,p$Timestamp+timeTolerance,1))
-  
+# ## Create a blank reconciliation table
+# recon=data.frame(
+#   p_Timestamp=character(),
+#   f_Timestamp=character(),
+#   p_Lat=double(),
+#   f_Lat=double(),
+#   p_Lon=double(),
+#   f_Lon=double(),
+#   p_Desc=character(),
+#   f_Desc=character(),
+#   p_Com=character(),
+#   f_Com=character(),
+#   p_Wgt=double(),
+#   f_Wgt=double(),
+#   p_Len=double(),
+#   f_Len=double(),
+#   p_Quan=integer(),
+#   f_Quan=integer(),
+#   SPECIES=character(),
+#   p_Rev=character(),
+#   f_Rev=character(),
+#   notes=character(),
+#   stringsAsFactors=FALSE
+# )
+# recon[0:nrow(provider),]=NA
+# ## Set parameters for comparison
+# ## Time Tolerance (seconds)
+# timeTolerance=2
+# ## Latitude Tolerance (decimal degrees)
+# ## Longitude Tolerance (decimal degrees)
+# for(i in 1:nrow(provider)){
+#   p=provider[i,]
+#   recon$p_Timestamp[i]=as.character(ymd_hms(p$Timestamp))
+#   recon$p_Lat[i]=p$Latitude
+#   recon$p_Lon[i]=p$Longitude
+#   recon$p_Desc[i]=p$Description
+#   recon$p_Com[i]=p$Comments
+#   f=subset(fsb,fsb$Timestamp%in%seq(p$Timestamp-timeTolerance,p$Timestamp+timeTolerance,1))
+#   
+# }
+## ---------------------------
+## Create a summary file for the trip
+tripSum=list()
+tripSum$vessel=fsb$Vessel[1]
+tripSum$fsbReviewers=unique(fsb$Reviewer)
+tripSum$provReviewers=unique(provider$Reviewer)
+tripSum$Timestamps=c(min(c(fsb$Timestamp,provider$Timestamp)),max(c(fsb$Timestamp,provider$Timestamp)))
+s=unique(c(counts$SPECIES,exacts$SPECIES,weights$SPECIES))
+x=matrix(nrow=length(s),ncol=10)
+for(i in 1:length(s)){
+  a=subset(counts,counts$SPECIES==s[i])
+  b=subset(exacts,exacts$SPECIES==s[i])
+  d=subset(weights,weights$SPECIES==s[i])
+  x[i,1]=s[i]
+  x[i,2]=ifelse(nrow(a)==1,a$FSB,0)
+  x[i,3]=ifelse(nrow(a)==1,a$TEEM,0)
+  x[i,4]=ifelse(nrow(a)==1,a$deltaFish)
+  x[i,5]=ifelse(nrow(b)==1,b$Total,0)
+  x[i,6]=ifelse(nrow(b)==1,b$Match,0)
+  x[i,7]=ifelse(nrow(b)==1,b$w2,0)
+  x[i,8]=ifelse(nrow(d)==1,d$FSB,0)
+  x[i,9]=ifelse(nrow(d)==1,d$TEEM,0)
+  x[i,10]=ifelse(nrow(d)==1,d$deltaWeights,0)
 }
+x=as.data.frame(x)
+colnames(x)=c("SPECIES","fCount","pCount","diffCount","nFish","nMatch",
+  "nW2Match","fWeight","pWeight","diffWeight")
+tripSum$data=x
