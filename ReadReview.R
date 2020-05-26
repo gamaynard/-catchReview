@@ -33,10 +33,21 @@ options(scipen = 6, digits = 4) # eliminate scientific notation
 library(XLConnect)
 library(lubridate)
 library(stringdist)
+library(naniar)
+library(dplyr)
 ## ---------------------------
 
 ## load up our functions into memory
-
+## sNA standardizes NA values in dataframe "d"
+sNA=function(d){
+  NS=c("n/a","N/A","NA","<NA>","na","<na>")
+  for(col in 1:ncol(d)){
+    if(sum(d[,col]%in%NS)>0){
+      d[,col]=ifelse(d[,col]%in%NS,NA,d[,col])
+    }
+  }
+  return(d)
+}
 ## ---------------------------
 
 ## Set the filename to read in
@@ -174,6 +185,8 @@ counts=counts[1:which(counts$Species=="Grand Total")-1,]
 colnames(counts)[c(2,3)]=toupper(colnames(counts)[c(2,3)])
 ## Standardize species names
 counts$SPECIES=NA
+## Standardize NA values
+sNA(counts)
 ## Use fuzzy matching to assign the most likely standardized species name based
 ## on the existing species value
 for(i in 1:nrow(counts)){
@@ -217,6 +230,8 @@ weights=readWorksheetFromFile(
 weights=weights[1:which(weights$Species=="Grand Total")-1,]
 ## Standardize column names
 colnames(weights)[c(2,3)]=toupper(colnames(weights)[c(2,3)])
+## Standardize NAs
+weights=sNA(weights)
 weights$SPECIES=NA
 ## Use fuzzy matching to assign the most likely standardized species name based
 ## on the existing species value
@@ -246,7 +261,21 @@ for(i in 1:nrow(weights)){
     }
   } 
 }
-weights$deltaWeights=abs(weights$FSB-weights$TEEM)
+weights$deltaWeights=abs(
+  as.numeric(
+    ifelse(
+      is.na(
+        weights$FSB
+        ),0,weights$FSB
+    )
+  )-as.numeric(
+    ifelse(
+      is.na(
+        weights$TEEM
+      ),0,weights$TEEM
+    )
+  )
+)
 
 ## The sixth and seventh sheets in the workbook describe how many length records
 ## match exactly and within 2 cm between the provider data and the FSB data. For
