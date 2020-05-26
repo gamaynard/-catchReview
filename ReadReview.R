@@ -330,6 +330,8 @@ w2=readWorksheetFromFile(
 ## Eliminate "Grand Total" and extraneous notes lines that don't fit in the table
 w2=w2[1:which(w2$Species=="Grand Total")-1,]
 w2$SPECIES=NA
+## Correct a common mislabeling of w2 column names
+colnames(w2)=c("Species","X..2","Total","X..Match","SPECIES")
 ## Use fuzzy matching to assign the most likely standardized species name based
 ## on the existing species value
 for(i in 1:nrow(w2)){
