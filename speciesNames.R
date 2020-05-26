@@ -33,6 +33,7 @@ memory.limit(30000000)     # increase PC memory allowance
 library(XLConnect)
 library(tabulizer)
 library(dplyr)
+library(naniar)
 ## ---------------------------
 
 ## load up our functions into memory
@@ -72,18 +73,11 @@ for(i in fileList){
 }
 sn=unique(toupper(sn))
 
-## Read in the ITIS list from the Atlantic Coastal Cooperative Statistics Program
-accsp=matrix(ncol=6,nrow=0)
-loc="https://www.accsp.org/wp-content/uploads/Standards_AppendixC_CodesandFormat_2012.pdf"
-for(i in seq(22,51,1)){
-  x=extract_tables(
-    file=loc,
-    pages=seq(i,i,1),
-    columns=list(6)
-  )[[1]]
-  df %>% replace_with_na(replace = list(x = -99))
-}
-out=extract_tables(
-  file=loc,
-  pages=seq(22,51,1)
+## Output the list as a .csv for inclusion in the master species.csv
+## sheet
+write.csv(
+  x=sn,
+  file="sn.csv",
+  row.names=FALSE
 )
+
