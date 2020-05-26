@@ -40,7 +40,8 @@ library(stringdist)
 ## ---------------------------
 
 ## Set the filename to read in
-filename="../Catch Reviews FY19-20200512T202011Z-001/Catch Reviews FY19/Catch_review_20190430_KathrynLeigh.xlsx"
+#filename="../Catch Reviews FY19-20200512T202011Z-001/Catch Reviews FY19/Catch_review_20190430_KathrynLeigh.xlsx"
+filename=fn
 ## The first sheet of the file is the provider data
 provider=readWorksheetFromFile(
   file=filename,
@@ -409,7 +410,7 @@ for(i in 1:length(s)){
   x[i,1]=s[i]
   x[i,2]=ifelse(nrow(a)==1,a$FSB,0)
   x[i,3]=ifelse(nrow(a)==1,a$TEEM,0)
-  x[i,4]=ifelse(nrow(a)==1,a$deltaFish)
+  x[i,4]=ifelse(nrow(a)==1,a$deltaFish,0)
   x[i,5]=ifelse(nrow(b)==1,b$Total,0)
   x[i,6]=ifelse(nrow(b)==1,b$Match,0)
   x[i,7]=ifelse(nrow(b)==1,b$w2,0)
