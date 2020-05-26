@@ -170,6 +170,8 @@ counts=readWorksheetFromFile(
 )
 ## Eliminate "Grand Total" and extraneous notes lines that don't fit in the table
 counts=counts[1:which(counts$Species=="Grand Total")-1,]
+## Standardize column names
+colnames(counts)[c(2,3)]=toupper(colnames(counts)[c(2,3)])
 ## Standardize species names
 counts$SPECIES=NA
 ## Use fuzzy matching to assign the most likely standardized species name based
@@ -213,6 +215,8 @@ weights=readWorksheetFromFile(
 )
 ## Eliminate "Grand Total" and extraneous notes lines that don't fit in the table
 weights=weights[1:which(weights$Species=="Grand Total")-1,]
+## Standardize column names
+colnames(weights)[c(2,3)]=toupper(colnames(weights)[c(2,3)])
 weights$SPECIES=NA
 ## Use fuzzy matching to assign the most likely standardized species name based
 ## on the existing species value
@@ -327,31 +331,31 @@ for(i in 1:nrow(w2)){
 }
 exacts$w2=w2$X..2
 exacts$totalDiff=exacts$diff-exacts$w2
-## The eighth sheet in the workbook is a summary file that is essentially a
-## block of text, presumably produced by the FSB reviewer, describing any
-## discrepencies between the outputs of the two reviews
-fsbSummary=readWorksheetFromFile(
-  file=filename,
-  sheet=8,
-  startRow=0
-)
-fsbSummary=colnames(fsbSummary)
-## Make the text string human readable
-fsbSummary=gsub(
-  pattern="\\.\\.",
-  replacement="\\! ",
-  x=fsbSummary
-)
-fsbSummary=gsub(
-  pattern="\\.",
-  replacement=" ",
-  x=fsbSummary
-)
-fsbSummary=gsub(
-  pattern="\\!",
-  replacement="\\.",
-  x=fsbSummary
-)
+# ## The eighth sheet in the workbook is a summary file that is essentially a
+# ## block of text, presumably produced by the FSB reviewer, describing any
+# ## discrepencies between the outputs of the two reviews
+# fsbSummary=readWorksheetFromFile(
+#   file=filename,
+#   sheet=8,
+#   startRow=0
+# )
+# fsbSummary=colnames(fsbSummary)
+# ## Make the text string human readable
+# fsbSummary=gsub(
+#   pattern="\\.\\.",
+#   replacement="\\! ",
+#   x=fsbSummary
+# )
+# fsbSummary=gsub(
+#   pattern="\\.",
+#   replacement=" ",
+#   x=fsbSummary
+# )
+# fsbSummary=gsub(
+#   pattern="\\!",
+#   replacement="\\.",
+#   x=fsbSummary
+# )
 ## ---------------------------
 
 # ## Create a blank reconciliation table
@@ -395,30 +399,30 @@ fsbSummary=gsub(
 #   
 # }
 ## ---------------------------
-## Create a summary file for the trip
-tripSum=list()
-tripSum$vessel=fsb$Vessel[1]
-tripSum$fsbReviewers=unique(fsb$Reviewer)
-tripSum$provReviewers=unique(provider$Reviewer)
-tripSum$Timestamps=c(min(c(fsb$Timestamp,provider$Timestamp)),max(c(fsb$Timestamp,provider$Timestamp)))
-s=unique(c(counts$SPECIES,exacts$SPECIES,weights$SPECIES))
-x=matrix(nrow=length(s),ncol=10)
-for(i in 1:length(s)){
-  a=subset(counts,counts$SPECIES==s[i])
-  b=subset(exacts,exacts$SPECIES==s[i])
-  d=subset(weights,weights$SPECIES==s[i])
-  x[i,1]=s[i]
-  x[i,2]=ifelse(nrow(a)==1,a$FSB,0)
-  x[i,3]=ifelse(nrow(a)==1,a$TEEM,0)
-  x[i,4]=ifelse(nrow(a)==1,a$deltaFish,0)
-  x[i,5]=ifelse(nrow(b)==1,b$Total,0)
-  x[i,6]=ifelse(nrow(b)==1,b$Match,0)
-  x[i,7]=ifelse(nrow(b)==1,b$w2,0)
-  x[i,8]=ifelse(nrow(d)==1,d$FSB,0)
-  x[i,9]=ifelse(nrow(d)==1,d$TEEM,0)
-  x[i,10]=ifelse(nrow(d)==1,d$deltaWeights,0)
-}
-x=as.data.frame(x)
-colnames(x)=c("SPECIES","fCount","pCount","diffCount","nFish","nMatch",
-  "nW2Match","fWeight","pWeight","diffWeight")
-tripSum$data=x
+# ## Create a summary file for the trip
+# tripSum=list()
+# tripSum$vessel=fsb$Vessel[1]
+# tripSum$fsbReviewers=unique(fsb$Reviewer)
+# tripSum$provReviewers=unique(provider$Reviewer)
+# tripSum$Timestamps=c(min(c(fsb$Timestamp,provider$Timestamp)),max(c(fsb$Timestamp,provider$Timestamp)))
+# s=unique(c(counts$SPECIES,exacts$SPECIES,weights$SPECIES))
+# x=matrix(nrow=length(s),ncol=10)
+# for(i in 1:length(s)){
+#   a=subset(counts,counts$SPECIES==s[i])
+#   b=subset(exacts,exacts$SPECIES==s[i])
+#   d=subset(weights,weights$SPECIES==s[i])
+#   x[i,1]=s[i]
+#   x[i,2]=ifelse(nrow(a)==1,a$FSB,0)
+#   x[i,3]=ifelse(nrow(a)==1,a$TEEM,0)
+#   x[i,4]=ifelse(nrow(a)==1,a$deltaFish,0)
+#   x[i,5]=ifelse(nrow(b)==1,b$Total,0)
+#   x[i,6]=ifelse(nrow(b)==1,b$Match,0)
+#   x[i,7]=ifelse(nrow(b)==1,b$w2,0)
+#   x[i,8]=ifelse(nrow(d)==1,d$FSB,0)
+#   x[i,9]=ifelse(nrow(d)==1,d$TEEM,0)
+#   x[i,10]=ifelse(nrow(d)==1,d$deltaWeights,0)
+# }
+# x=as.data.frame(x)
+# colnames(x)=c("SPECIES","fCount","pCount","diffCount","nFish","nMatch",
+#   "nW2Match","fWeight","pWeight","diffWeight")
+# tripSum$data=x
