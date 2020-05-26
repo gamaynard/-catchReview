@@ -329,7 +329,14 @@ for(i in 1:nrow(w2)){
     }
   } 
 }
-exacts$w2=w2$X..2
+## Remove blank lines from w2 in case of perfect agreement
+w2$blank=ifelse(prod(is.na(w2[,1:5]))==1,1,0)
+w2=subset(w2,w2$blank==0)
+if(nrow(w2)>0){
+  exacts$w2=w2$X..2
+} else {
+  exacts$w2=0
+}
 exacts$totalDiff=exacts$diff-exacts$w2
 # ## The eighth sheet in the workbook is a summary file that is essentially a
 # ## block of text, presumably produced by the FSB reviewer, describing any
