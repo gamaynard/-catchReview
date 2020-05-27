@@ -85,14 +85,17 @@ for(file in fileList){
     if(sp%in%exacts$SPECIES){
       newdat[which(newdat[,3]==sp),9]=subset(exacts,exacts$SPECIES==sp)$Total
       newdat[which(newdat[,3]==sp),10]=subset(exacts,exacts$SPECIES==sp)$Match
+      newdat[which(newdat[,3]==sp),11]=subset(exacts,exacts$SPECIES==sp)$w2
+      newdat[which(newdat[,3]==sp),12]=subset(exacts,exacts$SPECIES==sp)$diff
+      newdat[which(newdat[,3]==sp),13]=subset(exacts,exacts$SPECIES==sp)$totalDiff
     } else {
       newdat[which(newdat[,3]==sp),9]=NA
       newdat[which(newdat[,3]==sp),10]=NA
+      newdat[which(newdat[,3]==sp),11]=NA
+      newdat[which(newdat[,3]==sp),12]=NA
+      newdat[which(newdat[,3]==sp),13]=NA
     }
   }
-  newdat[,11]=ifelse(newdat[,3]%in%exacts$SPECIES,exacts$w2[which(exacts$SPECIES==newdat[,3])],NA)
-  newdat[,12]=ifelse(newdat[,3]%in%exacts$SPECIES,exacts$diff[which(exacts$SPECIES==newdat[,3])],NA)
-  newdat[,13]=ifelse(newdat[,3]%in%exacts$SPECIES,exacts$totalDiff[which(exacts$SPECIES==newdat[,3])],NA)
   newdat[,14]=ifelse(newdat[,3]%in%weights$SPECIES,weights$deltaWeights[which(weights$SPECIES==newdat[,3])],NA)
   colnames(newdat)=c('DATE','VESSEL','SPECIES','FSB_COUNT','FSB_WEIGHT','TF_COUNT',
     'TF_WEIGHT','DELTA_COUNT','IND_LENGTHS','EXACT_LENGTH','W2_LENGTH',
