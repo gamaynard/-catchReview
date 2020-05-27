@@ -134,3 +134,5 @@ for(soi in c("all","groundfish","unk","fish","ATLANTIC COD","POLLOCK","HADDOCK",
   data=rbind(data,newline)
 }
 colnames(data)=cn
+data$pMatch=as.numeric(as.character(data$w2))/as.numeric(as.character(data$nFish))
+write.csv(data,"C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/CatchReview/FY2019_summary.csv",row.names=FALSE)
