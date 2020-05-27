@@ -58,7 +58,7 @@ provider=readWorksheetFromFile(
   file=filename,
   sheet=1,
   startRow=1,
-  endCol=17
+  endCol=25
 )
 ## Format the data
 provider$ID=as.numeric(as.character(provider$ID))
@@ -84,7 +84,7 @@ fsb=readWorksheetFromFile(
   file=filename,
   sheet=2,
   startRow=1,
-  endCol=17
+  endCol=25
 )
 ## Format the data
 fsb$ID=as.numeric(as.character(fsb$ID))
