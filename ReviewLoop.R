@@ -6,7 +6,7 @@
 ##    executing ReadReview.R on each one and creating a master summary
 ##    file to analyze
 ##
-## Author: Dr. George A. Maynard
+## Author: George A. Maynard
 ##
 ## Date Created: 2020-05-26
 ##
@@ -60,12 +60,13 @@ rSum=data.frame(
   Delta_Weight=double()
 )
 
+## Fire up the progress bar
 pb=txtProgressBar(
   min=0,
   max=1,
   initial=0,
   char="*",
-  style=1
+  style=3
 )
 for(file in fileList){
   fn=paste("C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/CatchReview/Catch Reviews FY19-20200512T202011Z-001/Catch Reviews FY19/",file,sep="")

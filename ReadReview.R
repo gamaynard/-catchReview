@@ -6,7 +6,7 @@
 ##    project. The files are produced by NOAA staff following NOAA's audit of
 ##    the EM service provider's review for the trip.
 ##
-## Author: Dr. George A. Maynard
+## Author: George A. Maynard
 ##
 ## Date Created: 2020-05-20
 ##

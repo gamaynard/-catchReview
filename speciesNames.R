@@ -5,7 +5,7 @@
 ## Purpose of script: This script creates the list of potential
 ##    species names that other scripts use to standardize species names
 ##
-## Author: Dr. George A. Maynard
+## Author: George A. Maynard
 ##
 ## Date Created: 2020-05-26
 ##
