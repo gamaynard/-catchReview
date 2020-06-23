@@ -1,16 +1,3 @@
-<<<<<<< HEAD
-Provider,FSB1,FSB2,ITIS,AFS
-Haddock(Haddock),Haddock(Haddock),Haddock(HADD),164744,HADDOCK
-Pollock(Atlantic pollock),Pollock(POLL),,164727,POLLOCK
-Atlantic Cod(Atlantic cod),Atlantic Cod(COD),,164712,ATLANTIC COD
-Atlantic Halibut(Atlantic halibut),Atlantic Halibut(HAL),,172933,ATLANTIC HALIBUT
-"Hake, NK(null)","Hake, NK(HAKNS)",,,UNKNOWN HAKE
-Atlatnic Wolffish(Atlantic wolffish),Atlantic Wolffish(CAT),,171341,ATLANTIC WOLFFISH
-,American Plaice(FLDAB),,172877,AMERICAN PLAICE
-No Groundfish Discards(null),No Groundfish Discards(NGD),,,NO DISCARDS
-Ocean pout(Ocean pout),,,630979,OCEAN POUT
-Fish unknown(null),,,,UNKNOWN FISH
-=======
 PEBKAC,ITIS,AFS,GROUNDFISH
 ALB,172419,ALBACORE,FALSE
 ALBACORE,172419,ALBACORE,FALSE
