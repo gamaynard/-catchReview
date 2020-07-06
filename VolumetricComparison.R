@@ -124,3 +124,48 @@ quantile(
   )
 mean(data$CPB)
 sd(data$CPB)
+## Use the samplingbook package to calculate necessary sample sizes with
+## different levels of precision (1/2 CI)
+p=seq(1,10,1)
+sampleSize=p
+for(i in 1:length(p)){
+  sampleSize[i]=sample.size.mean(
+    e=p[i],
+    S=sd(data$CPB)
+  )$n
+}
+## Calculate mean and 95% CI for each basket size individually
+baskets=seq(0.25,3,0.25)
+plot(
+  x=1,
+  y=1,
+  type='n',
+  xlim=c(0,3.25),
+  ylim=c(0,175),
+  xlab="Baskets",
+  ylab="Count per Basket"
+)
+for(i in baskets){
+  x=subset(data,data$Baskets==i)
+  points(
+    i,
+    mean(x$CPB),
+    pch=16
+    )
+  if(nrow(x)>3){
+    arrows(
+      i, 
+      mean(x$CPB)-1.96*sd(x$CPB),
+      i, 
+      mean(x$CPB)+1.96*sd(x$CPB), 
+      length=0.05, 
+      angle=90, 
+      code=3
+      )
+  } else {
+    abline(
+      v=i,
+      lty=2
+    )
+  }
+}
