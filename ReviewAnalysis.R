@@ -135,4 +135,74 @@ for(soi in c("all","groundfish","unk","fish","ATLANTIC COD","POLLOCK","HADDOCK",
 }
 colnames(data)=cn
 data$pMatch=as.numeric(as.character(data$w2))/as.numeric(as.character(data$nFish))
+## Write out the data to a .csv file
 write.csv(data,"C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/CatchReview/FY2019_summary.csv",row.names=FALSE)
+
+## Plot the per trip count differences by species
+par(mar=c(8, 4.1, 4.1, 2.1))
+data=read.csv("C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/CatchReview/FY2019_summary.csv")
+data$DataSet=as.character(data$DataSet)
+x=subset(data,data$DataSet%in%c('all','groundfish','unk','fish','WHITE HAKE')==FALSE)
+x$pMatch=ifelse(x$pMatch>1,1,x$pMatch)
+x=x[order(x$DataSet),]
+y=barplot(
+  height=x$avgCountDiff,
+  names.arg=x$DataSet,
+  beside=TRUE,
+  las=2,
+  ylim=c(0,35),
+  ylab="Per Trip Count Differences",
+  xlab="",
+  cex.names=0.75,
+  xaxt='n')
+text(x=y,
+     y=par("usr")[3]-1,
+     srt=45,
+     adj=1,
+     labels=x$DataSet,
+     xpd=TRUE)
+text(x=y,
+     y=x$maxCountDiff95+2,
+     labels=paste("n=",x$nTrips,sep="")
+)
+segments(y, x$minCountDiff95, y,x$maxCountDiff95, lwd = 1.5)
+arrows(y, x$minCountDiff95, y,x$maxCountDiff95,lwd = 1.5, angle = 90,code = 3, length = 0.05)
+abline(h=seq(0,35,5),col='lightgray',lty=3)
+abline(h=0,col='black',lty=1)
+
+## Barplot of Fish Length Matching
+y=barplot(height=x$nFish,
+        col='lightgray',
+        ylab='Number of Fish',
+        ylim=c(0,5000)
+        )
+abline(h=seq(0,5000,1000),lty=3,col='lightgray')
+barplot(height=x$w2,
+        dens=10,
+        angle=45,
+        add=TRUE,
+        col='black')
+barplot(height=x$exact,
+        dens=10,
+        angle=135,
+        add=TRUE,
+        col='black')
+legend(
+  "topleft",
+  legend=c("All","<2 cm","Exact"),
+  fill=c('lightgray',NA,NA),
+  dens=c(NA,20,20),
+  col=c(NA,'black','black'),
+  angle=c(NA,45,135)
+)
+text(x=y,
+     y=x$nFish+500,
+     labels=paste("p=",round(x$pMatch,2),sep="")
+)
+text(x=y,
+     y=par("usr")[3]-1,
+     srt=45,
+     adj=1,
+     labels=x$DataSet,
+     xpd=TRUE)
+abline(h=0,col='black')
