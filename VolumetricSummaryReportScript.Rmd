@@ -156,7 +156,11 @@ master$Vessel=trimws(master$Vessel)
 ```
 This is an automated weekly report generated to summarize the current volumetric discard sampling data that has been collected through the Audit Model Electronic Monitoring program in the New England Groundfish Fishery. To see the code used to analyze the data and create the reports, please visit the GitHub repository [here](https://github.com/gamaynard/ElectronicMonitoring/blob/master/VolumetricSummaryReportScript.Rmd). The goal of this project is to estimate the mean number of a given species of fish that are discarded from a full basket within $\pm$ 5 fish, which would reduce handling time for high-volume discard species without compromising data quality. As such, for the purposes of this analysis, all measurements have been standardized to a single basket (e.g., a half-full basket of 25 fish is counted as a full basket of 50 fish). 
 
+<<<<<<< HEAD
 Data collection efforts for this study began with several fishing boats in the later part of Fishing Year 2019. The data in this report include available trips from FY2019 forward, taken up to and including `r as.character(round_date(max(ymd_hms(as.character(master$Timestamp))),unit="day"))`. To date, participating vessels have measured `r nrow(master)` full or partial baskets of fish. 
+=======
+Data collection efforts for this study began with several fishing boats in the later part of Fishing Year 2019. The data in this report include available trips from FY2019 forwrd, taken up to and including `r as.character(round_date(max(ymd_hms(as.character(master$Timestamp))),unit="day"))`. To date, participating vessels have measured `r nrow(master)` full or partial baskets of fish. 
+>>>>>>> 130d6b56a3c7c20d27b9efa3d1b068f2bedb69c6
 
 The list of participating vessels is as follows: `r paste(unique(toupper(master$Vessel))[order(unique(toupper(master$Vessel)))],collapse=", ")`. 
 
