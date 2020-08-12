@@ -32,13 +32,13 @@ output: word_document
 ## ---------------------------
 
 ## set working directory
-## The working directory is set outside of the GitHub repository so that no data
-## files are uploaded to GitHub
-setwd("C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/Volumetric/RealTime/")
+
 ## ---------------------------
 
 ## Set options
 options(scipen = 6, digits = 4) # eliminate scientific notation
+knitr::opts_knit$set(root.dir="C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/Volumetric/RealTime/")
+knitr::opts_chunk$set(echo = TRUE)
 ## ---------------------------
 
 ## load up the packages we will need:  (uncomment as required)
@@ -51,7 +51,6 @@ library(samplingbook)
 ## load up our functions into memory
 
 ## ---------------------------
-knitr::opts_chunk$set(echo = TRUE)
 ```
 ```{r Data Download, echo=FALSE, warning=FALSE, message=FALSE}
 ## Create a list of files to work through
@@ -62,7 +61,7 @@ master=data.frame(
   ID=as.character(),
   Timestamp=as.character(),
   Latitude=as.numeric(),
-  Longitued=as.numeric(),
+  Longitude=as.numeric(),
   Description=as.character(),
   OptionalEvent=as.character(),
   Volumetrics=as.character(),
@@ -153,35 +152,616 @@ species=unique(master$SPECIES)
 master$Quantity=as.numeric(as.character(master$Quantity))
 master$estBasket=master$Quantity/master$BasketLevel
 ```
-This is an automated weekly report generated to summarize the current volumetric sampling that has been collected through the Audit Model Electronic Monitoring program in the New England Groundfish Fishery. To see the code used to analyze the data and create the reports, please visit the GitHub repository [here](http://18.222.68.23:3838/FishSampleDB/). 
-The database is current as of `r max(data$SamplingTime, na.rm=TRUE)`. The legal limit on halibut is 41 inches. To date, there have been `r legal` legal-sized fish sampled under the EFP and `r sublegal` sublegal fish sampled under the EFP for a total of `r legal+sublegal` halibut sampled.
+This is an automated weekly report generated to summarize the current volumetric discard sampling data that has been collected through the Audit Model Electronic Monitoring program in the New England Groundfish Fishery. To see the code used to analyze the data and create the reports, please visit the GitHub repository [here](https://github.com/gamaynard/ElectronicMonitoring/blob/master/VolumetricSummaryReportScript.Rmd). The goal of this project is to estimate the mean number of a given species of fish that are discarded from a full basket within $\pm$ 5 fish, which would reduce handling time for high-volume discard species without compromising data quality. As such, for the purposes of this analysis, all measurements have been standardized to a single basket (e.g., a half-full basket of 25 fish is counted as a full basket of 50 fish). 
 
-```{r LegalHalibut, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=3.5}
-hist(data$Length,col='gray',ylab='Count',xlab='Length (cm)',main='')
-abline(v=104,lty=2,lwd=2)
+The data in this report include available trips taken up to and including `r as.character(round_date(max(ymd_hms(as.character(master$Timestamp))),unit="day"))`. To date, participating vessels have measured `r nrow(master)` full or partial baskets of fish. 
+
+The list of participating vessels is as follows: `r paste(unique(toupper(master$Vessel)),collapse=" ,")`. 
+
+The list of species included in this report is as follows: American Plaice, Haddock, Ocean Pout, Redfish, Witch Flounder, and Yellowtail Flounder. If the figures for a species indicate that too few baskets are available to analyze, the values in the caption of those figures should be disregarded. A minimum of three baskets is required for analysis, but all estimates become more certain as sample size increases. 
+
+```{r AmPlaiceDist, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+s="AMERICAN PLAICE"
+a=subset(master,master$SPECIES==s)
+  if(nrow(a)>2){
+    hist(
+      a$estBasket,
+      xlab="Estimate Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='gray',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    lines(
+      dnorm(
+        seq(0,250,1),
+        mean=mean(a$estBasket),
+        sd=sd(a$estBasket)
+        )*300,
+      lty=2
+      )
+  } else {
+    hist(
+      a$estBasket,
+      xlab="Estimated Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='white',
+      border='white',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    text(
+      x=125,
+      y=12.5,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
 ```
 
-Figure 1 -- Length-frequency histogram for halibut caught under the EFP. The dashed line represents the minimum legal size per current regulations. 
+Figure 1a -- Histogram of the distribution of estimates of the number of `r s` per whole basket of fish, derived from `r nrow(a)` measurements of full or partial baskets. The dashed line represents the current estimated distribution based on the samples available. The average number of fish per basket is `r round(mean(a$estBasket),2)` with a standard deviation of `r round(sd(a$estBasket),2)`.
 
-```{r Length/Weight, echo=FALSE, fig.height=3.5}
-plot(data$Weight~data$Length,main='',xlab="Length (cm)",
-     ylab="Weight (kg)",pch=16)
-abline(v=104,lty=2,lwd=2)
+```{r AmPlaiceSampling, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+  if(nrow(a)>2){
+    precisions=seq(0.5,25,0.5)
+    sn=vector(length=length(precisions))
+    for(j in 1:length(precisions)){
+      sn[j]=sample.size.mean(
+        precisions[j],
+        sd(a$estBasket)
+      )$n
+    }
+    plot(
+      (precisions*4)~sn,
+      type='l',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    abline(v=nrow(a),lty=2,col='blue')
+    abline(h=precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4,
+      lty=2,
+      col='blue')
+    abline(h=10,lty=2,col='red')
+    SN=sample.size.mean(
+      2.5,
+      sd(a$estBasket)
+    )$n
+    abline(v=SN,lty=2,col='red')
+    legend(
+      "topright",
+      legend=c("Target","Present"),
+      lty=2,
+      col=c('red','blue')
+    )
+  } else {
+    plot(
+      (precisions*4)~sn,
+      type='n',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    text(
+      x=500,
+      y=50,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
 ```
 
-Figure 2 -- Length (x-axis) and weight (y-axis) relationship for halibut caught under the EFP. The dashed line represents the minimum legal size per current regulations.
+Figure 1b -- Line plot of the 95% CI width (in # of fish) around the mean based on number of full or partial baskets measured (samples). The blue dashed line represents the current 95% CI width (`r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4` fish, i.e., $\pm$ `r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*2` fish) and sampling effort (`r nrow(a)` full or partial baskets measured). The red dashed line represents the target 95% CI width (10 fish, i.e. $\pm$ 5 fish) and the estimated necessary sampling effort required to achieve that target based on the current data (`r sample.size.mean(2.5,sd(a$estBasket))$n` full or partial baskets measured). An estimated `r SN-nrow(a)` additional samples are required to reach the target precision of 2.5 fish.  
 
-```{r Mapping, include=FALSE}
-blues=c("lightsteelblue4", "lightsteelblue3", "lightsteelblue2", "lightsteelblue1")
-greys=c(grey(0.6), grey(0.93), grey(0.99))
-## Download bathymetric data for plotting capture locations
-basemap=getNOAA.bathy(-85, -55, 36, 48, res=5)
-```
-```{r Map Plotting, echo=FALSE, fig.height=3.5}
-plot(basemap, image = TRUE, land = TRUE, deep=-100000, shallow=0, 
-	step=999999, drawlabels = FALSE, bpal = list(c(min(basemap,na.rm=TRUE), 
-	0, blues), c(0, max(basemap, na.rm=TRUE), greys)), lwd = 0.1)
-points(data$CollectionLatitude~data$CollectionLongitude,pch=22,col='black',bg='red')
+```{r HaddockDist, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+s="HADDOCK"
+a=subset(master,master$SPECIES==s)
+  if(nrow(a)>2){
+    hist(
+      a$estBasket,
+      xlab="Estimate Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='gray',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    lines(
+      dnorm(
+        seq(0,250,1),
+        mean=mean(a$estBasket),
+        sd=sd(a$estBasket)
+        )*300,
+      lty=2
+      )
+  } else {
+    hist(
+      a$estBasket,
+      xlab="Estimated Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='white',
+      border='white',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    text(
+      x=125,
+      y=12.5,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
 ```
 
-Figure 3 -- Approximate capture locations of halibut caught under the EFP. 
+Figure 2a -- Histogram of the distribution of estimates of the number of `r s` per whole basket of fish, derived from `r nrow(a)` measurements of full or partial baskets. The dashed line represents the current estimated distribution based on the samples available. The average number of fish per basket is `r round(mean(a$estBasket),2)` with a standard deviation of `r round(sd(a$estBasket),2)`.
+
+```{r HaddockSampling, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+  if(nrow(a)>2){
+    precisions=seq(0.5,25,0.5)
+    sn=vector(length=length(precisions))
+    for(j in 1:length(precisions)){
+      sn[j]=sample.size.mean(
+        precisions[j],
+        sd(a$estBasket)
+      )$n
+    }
+    plot(
+      (precisions*4)~sn,
+      type='l',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    abline(v=nrow(a),lty=2,col='blue')
+    abline(h=precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4,
+      lty=2,
+      col='blue')
+    abline(h=10,lty=2,col='red')
+    SN=sample.size.mean(
+      2.5,
+      sd(a$estBasket)
+    )$n
+    abline(v=SN,lty=2,col='red')
+    legend(
+      "topright",
+      legend=c("Target","Present"),
+      lty=2,
+      col=c('red','blue')
+    )
+  } else {
+    plot(
+      (precisions*4)~sn,
+      type='n',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    text(
+      x=500,
+      y=50,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 2b -- Line plot of the 95% CI width (in # of fish) around the mean based on number of full or partial baskets measured (samples). The blue dashed line represents the current 95% CI width (`r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4` fish, i.e., $\pm$ `r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*2` fish) and sampling effort (`r nrow(a)` full or partial baskets measured). The red dashed line represents the target 95% CI width (10 fish, i.e. $\pm$ 5 fish) and the estimated necessary sampling effort required to achieve that target based on the current data (`r sample.size.mean(2.5,sd(a$estBasket))$n` full or partial baskets measured). An estimated `r SN-nrow(a)` additional samples are required to reach the target precision of 2.5 fish.  
+
+```{r PoutDist, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+s="OCEAN POUT"
+a=subset(master,master$SPECIES==s)
+  if(nrow(a)>2){
+    hist(
+      a$estBasket,
+      xlab="Estimate Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='gray',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    lines(
+      dnorm(
+        seq(0,250,1),
+        mean=mean(a$estBasket),
+        sd=sd(a$estBasket)
+        )*300,
+      lty=2
+      )
+  } else {
+    hist(
+      a$estBasket,
+      xlab="Estimated Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='white',
+      border='white',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    text(
+      x=125,
+      y=12.5,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 3a -- Histogram of the distribution of estimates of the number of `r s` per whole basket of fish, derived from `r nrow(a)` measurements of full or partial baskets. The dashed line represents the current estimated distribution based on the samples available. The average number of fish per basket is `r round(mean(a$estBasket),2)` with a standard deviation of `r round(sd(a$estBasket),2)`.
+
+```{r PoutSampling, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+  if(nrow(a)>2){
+    precisions=seq(0.5,25,0.5)
+    sn=vector(length=length(precisions))
+    for(j in 1:length(precisions)){
+      sn[j]=sample.size.mean(
+        precisions[j],
+        sd(a$estBasket)
+      )$n
+    }
+    plot(
+      (precisions*4)~sn,
+      type='l',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    abline(v=nrow(a),lty=2,col='blue')
+    abline(h=precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4,
+      lty=2,
+      col='blue')
+    abline(h=10,lty=2,col='red')
+    SN=sample.size.mean(
+      2.5,
+      sd(a$estBasket)
+    )$n
+    abline(v=SN,lty=2,col='red')
+    legend(
+      "topright",
+      legend=c("Target","Present"),
+      lty=2,
+      col=c('red','blue')
+    )
+  } else {
+    plot(
+      (precisions*4)~sn,
+      type='n',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    text(
+      x=500,
+      y=50,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 3b -- Line plot of the 95% CI width (in # of fish) around the mean based on number of full or partial baskets measured (samples). The blue dashed line represents the current 95% CI width (`r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4` fish, i.e., $\pm$ `r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*2` fish) and sampling effort (`r nrow(a)` full or partial baskets measured). The red dashed line represents the target 95% CI width (10 fish, i.e. $\pm$ 5 fish) and the estimated necessary sampling effort required to achieve that target based on the current data (`r sample.size.mean(2.5,sd(a$estBasket))$n` full or partial baskets measured). An estimated `r SN-nrow(a)` additional samples are required to reach the target precision of 2.5 fish. 
+
+```{r RFDist, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+s="REDFISH"
+a=subset(master,master$SPECIES==s)
+  if(nrow(a)>2){
+    hist(
+      a$estBasket,
+      xlab="Estimate Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='gray',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    lines(
+      dnorm(
+        seq(0,250,1),
+        mean=mean(a$estBasket),
+        sd=sd(a$estBasket)
+        )*300,
+      lty=2
+      )
+  } else {
+    hist(
+      a$estBasket,
+      xlab="Estimated Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='white',
+      border='white',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    text(
+      x=125,
+      y=12.5,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 4a -- Histogram of the distribution of estimates of the number of `r s` per whole basket of fish, derived from `r nrow(a)` measurements of full or partial baskets. The dashed line represents the current estimated distribution based on the samples available. The average number of fish per basket is `r round(mean(a$estBasket),2)` with a standard deviation of `r round(sd(a$estBasket),2)`.
+
+```{r RFSampling, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+  if(nrow(a)>2){
+    precisions=seq(0.5,25,0.5)
+    sn=vector(length=length(precisions))
+    for(j in 1:length(precisions)){
+      sn[j]=sample.size.mean(
+        precisions[j],
+        sd(a$estBasket)
+      )$n
+    }
+    plot(
+      (precisions*4)~sn,
+      type='l',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    abline(v=nrow(a),lty=2,col='blue')
+    abline(h=precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4,
+      lty=2,
+      col='blue')
+    abline(h=10,lty=2,col='red')
+    SN=sample.size.mean(
+      2.5,
+      sd(a$estBasket)
+    )$n
+    abline(v=SN,lty=2,col='red')
+    legend(
+      "topright",
+      legend=c("Target","Present"),
+      lty=2,
+      col=c('red','blue')
+    )
+  } else {
+    plot(
+      (precisions*4)~sn,
+      type='n',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    text(
+      x=500,
+      y=50,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 4b -- Line plot of the 95% CI width (in # of fish) around the mean based on number of full or partial baskets measured (samples). The blue dashed line represents the current 95% CI width (`r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4` fish, i.e., $\pm$ `r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*2` fish) and sampling effort (`r nrow(a)` full or partial baskets measured). The red dashed line represents the target 95% CI width (10 fish, i.e. $\pm$ 5 fish) and the estimated necessary sampling effort required to achieve that target based on the current data (`r sample.size.mean(2.5,sd(a$estBasket))$n` full or partial baskets measured). An estimated `r SN-nrow(a)` additional samples are required to reach the target precision of 2.5 fish.
+
+```{r WitchDist, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+s="WITCH FLOUNDER"
+a=subset(master,master$SPECIES==s)
+  if(nrow(a)>2){
+    hist(
+      a$estBasket,
+      xlab="Estimate Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='gray',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    lines(
+      dnorm(
+        seq(0,250,1),
+        mean=mean(a$estBasket),
+        sd=sd(a$estBasket)
+        )*300,
+      lty=2
+      )
+  } else {
+    hist(
+      a$estBasket,
+      xlab="Estimated Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='white',
+      border='white',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    text(
+      x=125,
+      y=12.5,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 5a -- Histogram of the distribution of estimates of the number of `r s` per whole basket of fish, derived from `r nrow(a)` measurements of full or partial baskets. The dashed line represents the current estimated distribution based on the samples available. The average number of fish per basket is `r round(mean(a$estBasket),2)` with a standard deviation of `r round(sd(a$estBasket),2)`.
+
+```{r WitchSampling, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+  if(nrow(a)>2){
+    precisions=seq(0.5,25,0.5)
+    sn=vector(length=length(precisions))
+    for(j in 1:length(precisions)){
+      sn[j]=sample.size.mean(
+        precisions[j],
+        sd(a$estBasket)
+      )$n
+    }
+    plot(
+      (precisions*4)~sn,
+      type='l',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    abline(v=nrow(a),lty=2,col='blue')
+    abline(h=precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4,
+      lty=2,
+      col='blue')
+    abline(h=10,lty=2,col='red')
+    SN=sample.size.mean(
+      2.5,
+      sd(a$estBasket)
+    )$n
+    abline(v=SN,lty=2,col='red')
+    legend(
+      "topright",
+      legend=c("Target","Present"),
+      lty=2,
+      col=c('red','blue')
+    )
+  } else {
+    plot(
+      (precisions*4)~sn,
+      type='n',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    text(
+      x=500,
+      y=50,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 5b -- Line plot of the 95% CI width (in # of fish) around the mean based on number of full or partial baskets measured (samples). The blue dashed line represents the current 95% CI width (`r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4` fish, i.e., $\pm$ `r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*2` fish) and sampling effort (`r nrow(a)` full or partial baskets measured). The red dashed line represents the target 95% CI width (10 fish, i.e. $\pm$ 5 fish) and the estimated necessary sampling effort required to achieve that target based on the current data (`r sample.size.mean(2.5,sd(a$estBasket))$n` full or partial baskets measured). An estimated `r SN-nrow(a)` additional samples are required to reach the target precision of 2.5 fish.
+
+```{r YTDist, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+s="YELLOWTAIL FLOUNDER"
+a=subset(master,master$SPECIES==s)
+  if(nrow(a)>2){
+    hist(
+      a$estBasket,
+      xlab="Estimate Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='gray',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    lines(
+      dnorm(
+        seq(0,250,1),
+        mean=mean(a$estBasket),
+        sd=sd(a$estBasket)
+        )*300,
+      lty=2
+      )
+  } else {
+    hist(
+      a$estBasket,
+      xlab="Estimated Fish per Whole Basket",
+      ylab="Number of Baskets",
+      main=s,
+      col='white',
+      border='white',
+      xlim=c(0,250),
+      ylim=c(0,25),
+      breaks=seq(0,250,5)
+    )
+    text(
+      x=125,
+      y=12.5,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 6a -- Histogram of the distribution of estimates of the number of `r s` per whole basket of fish, derived from `r nrow(a)` measurements of full or partial baskets. The dashed line represents the current estimated distribution based on the samples available. The average number of fish per basket is `r round(mean(a$estBasket),2)` with a standard deviation of `r round(sd(a$estBasket),2)`.
+
+```{r YTSampling, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=4}
+  if(nrow(a)>2){
+    precisions=seq(0.5,25,0.5)
+    sn=vector(length=length(precisions))
+    for(j in 1:length(precisions)){
+      sn[j]=sample.size.mean(
+        precisions[j],
+        sd(a$estBasket)
+      )$n
+    }
+    plot(
+      (precisions*4)~sn,
+      type='l',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    abline(v=nrow(a),lty=2,col='blue')
+    abline(h=precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4,
+      lty=2,
+      col='blue')
+    abline(h=10,lty=2,col='red')
+    SN=sample.size.mean(
+      2.5,
+      sd(a$estBasket)
+    )$n
+    abline(v=SN,lty=2,col='red')
+    legend(
+      "topright",
+      legend=c("Target","Present"),
+      lty=2,
+      col=c('red','blue')
+    )
+  } else {
+    plot(
+      (precisions*4)~sn,
+      type='n',
+      xlab="Samples Needed",
+      ylab="95% CI Width (# Fish)",
+      lwd=2,
+      main=s,
+      xlim=c(0,1000),
+      ylim=c(0,100)
+      )
+    text(
+      x=500,
+      y=50,
+      labels="NOT ENOUGH BASKETS TO ANALYZE"
+    )
+  }
+```
+
+Figure 6b -- Line plot of the 95% CI width (in # of fish) around the mean based on number of full or partial baskets measured (samples). The blue dashed line represents the current 95% CI width (`r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*4` fish, i.e., $\pm$ `r precisions[which(abs(sn-nrow(a))==min(abs(sn-nrow(a))))[1]]*2` fish) and sampling effort (`r nrow(a)` full or partial baskets measured). The red dashed line represents the target 95% CI width (10 fish, i.e. $\pm$ 5 fish) and the estimated necessary sampling effort required to achieve that target based on the current data (`r sample.size.mean(2.5,sd(a$estBasket))$n` full or partial baskets measured). An estimated `r SN-nrow(a)` additional samples are required to reach the target precision of 2.5 fish.
