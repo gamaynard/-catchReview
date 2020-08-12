@@ -1,0 +1,187 @@
+---
+## The text (inside quotations) shows up at the beginning of the report
+title: "Weekly Volumetric Sampling Report"
+author: "george@capecodfishermen.org"
+## The date field is dynamic. It uses the computer's internal clock to write the
+## date that the report was run
+date: "`r format(Sys.time(), '%Y %B %d')`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+## ---------------------------
+##
+## Script name: VolumetricSummaryReportScript.Rmd
+##
+## Purpose of script: This script will digest and analyze standardized 
+##    volumetric data as quickly as the data can be made available and provide  
+##    informative summaries and figures to project partners
+##
+## Author: George A. Maynard
+##
+## Date Created: 2020-08-11
+##
+## Copyright (c) George Alphonse Maynard, 2020
+## Email: galphonsemaynard@gmail.com
+##
+## ---------------------------
+##
+## Notes:
+##   
+##
+## ---------------------------
+
+## set working directory
+## The working directory is set outside of the GitHub repository so that no data
+## files are uploaded to GitHub
+setwd("C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/Volumetric/RealTime/")
+## ---------------------------
+
+## Set options
+options(scipen = 6, digits = 4) # eliminate scientific notation
+## ---------------------------
+
+## load up the packages we will need:  (uncomment as required)
+library(XLConnect)
+library(lubridate)
+library(stringdist)
+library(samplingbook)
+## ---------------------------
+
+## load up our functions into memory
+
+## ---------------------------
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r Data Download, echo=FALSE, warning=FALSE, message=FALSE}
+## Create a list of files to work through
+fileList=dir()
+## Create a blank dataframe to be populated by the files as we work through
+master=data.frame(
+  Trip_Slice_RevID=as.character(),
+  ID=as.character(),
+  Timestamp=as.character(),
+  Latitude=as.numeric(),
+  Longitued=as.numeric(),
+  Description=as.character(),
+  OptionalEvent=as.character(),
+  Volumetrics=as.character(),
+  EstimatedWeight=as.character(),
+  INCLifeStatus=as.character(),
+  BasketCount=as.character(),
+  BasketLevel=as.character(),
+  Quantity=as.character(),
+  Count=as.numeric(),
+  Species=as.character(),
+  GearType=as.character(),
+  Reviewer=as.character(),
+  Vessel=as.character(),
+  HaulNo=as.character()
+)
+## Combine files to create one master file
+for(i in 1:length(fileList)){
+  x=XLConnect::readWorksheetFromFile(
+    file=fileList[i],
+    sheet=1,
+    colTypes=c(rep("character",3),
+      rep("numeric",2),
+      rep("character",8),
+      "numeric",
+      rep("character",5)
+    )
+  )
+  colnames(x)=colnames(master)
+  ## Correct the Excel-induced fractions --> dates error
+  for(j in 1:nrow(x)){
+    if(is.na(x$BasketLevel[j])==FALSE){
+      if(nchar(x$BasketLevel[j])==19){
+        a=ymd_hms(x$BasketLevel[j])
+        b=month(a)/day(a)
+        x$BasketLevel[j]=b
+        rm(a,b)
+      }
+    }
+  }
+  ## Remove all baskets that are < 1/4 full or listed as NA
+  x=subset(x,x$BasketLevel!="<1/4")
+  x=subset(x,is.na(x$BasketLevel)==FALSE)
+  ## Change all basket counts that are "full" to 1
+  x$BasketLevel=ifelse(
+    toupper(x$BasketLevel)=="FULL",
+    1,
+    x$BasketLevel
+  )
+  ## Remove any other baskets with "<" or ">" symbols
+  x=subset(x,grepl("[<>]",x$BasketLevel)==FALSE)
+  x$BasketLevel=as.numeric(as.character(x$BasketLevel))
+  master=rbind(master,x)
+}
+## Read in standardization file for species names
+species=read.csv("https://raw.githubusercontent.com/gamaynard/ElectronicMonitoring/master/species.csv")
+## Remove any records that don't have a species name
+master=subset(master,is.na(master$Species)==FALSE)
+## Use fuzzy matching to convert each species name into a standardized value
+for(i in 1:nrow(master)){
+  ## calculate the minimum string distance from the existing value
+  ## to commonly used, non-standardized values
+  b=min(
+    stringdist(
+      a=toupper(master$Species[i]),
+      b=toupper(species$PEBKAC)
+    )
+  )
+  ## assign a standardized value that matches the closest non-standardized
+  ## value
+  sv=species$AFS[
+    which(stringdist(
+      a=toupper(master$Species[i]),
+      b=toupper(species$PEBKAC)
+      )==b
+    )
+  ]
+  ## If there is more than one unique value this portion of
+  ## the code will throw an error
+  if(length(unique(sv))==1){
+    master$SPECIES[i]=as.character(sv[1])
+  } else {
+    stop('ERROR: MULTIPLE SPECIES MATCHES')
+  }
+}
+## Create a list of species of interest to analyze
+species=unique(master$SPECIES)
+## Standardize all estimates to one basket
+master$Quantity=as.numeric(as.character(master$Quantity))
+master$estBasket=master$Quantity/master$BasketLevel
+```
+This is an automated weekly report generated to summarize the current volumetric sampling that has been collected through the Audit Model Electronic Monitoring program in the New England Groundfish Fishery. To see the code used to analyze the data and create the reports, please visit the GitHub repository [here](http://18.222.68.23:3838/FishSampleDB/). 
+The database is current as of `r max(data$SamplingTime, na.rm=TRUE)`. The legal limit on halibut is 41 inches. To date, there have been `r legal` legal-sized fish sampled under the EFP and `r sublegal` sublegal fish sampled under the EFP for a total of `r legal+sublegal` halibut sampled.
+
+```{r LegalHalibut, echo=FALSE, warning=FALSE, strip.white=TRUE, fig.height=3.5}
+hist(data$Length,col='gray',ylab='Count',xlab='Length (cm)',main='')
+abline(v=104,lty=2,lwd=2)
+```
+
+Figure 1 -- Length-frequency histogram for halibut caught under the EFP. The dashed line represents the minimum legal size per current regulations. 
+
+```{r Length/Weight, echo=FALSE, fig.height=3.5}
+plot(data$Weight~data$Length,main='',xlab="Length (cm)",
+     ylab="Weight (kg)",pch=16)
+abline(v=104,lty=2,lwd=2)
+```
+
+Figure 2 -- Length (x-axis) and weight (y-axis) relationship for halibut caught under the EFP. The dashed line represents the minimum legal size per current regulations.
+
+```{r Mapping, include=FALSE}
+blues=c("lightsteelblue4", "lightsteelblue3", "lightsteelblue2", "lightsteelblue1")
+greys=c(grey(0.6), grey(0.93), grey(0.99))
+## Download bathymetric data for plotting capture locations
+basemap=getNOAA.bathy(-85, -55, 36, 48, res=5)
+```
+```{r Map Plotting, echo=FALSE, fig.height=3.5}
+plot(basemap, image = TRUE, land = TRUE, deep=-100000, shallow=0, 
+	step=999999, drawlabels = FALSE, bpal = list(c(min(basemap,na.rm=TRUE), 
+	0, blues), c(0, max(basemap, na.rm=TRUE), greys)), lwd = 0.1)
+points(data$CollectionLatitude~data$CollectionLongitude,pch=22,col='black',bg='red')
+```
+
+Figure 3 -- Approximate capture locations of halibut caught under the EFP. 
