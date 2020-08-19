@@ -69,6 +69,7 @@ for(i in 1:length(fileList)){
   x=XLConnect::readWorksheetFromFile(
     file=fileList[i],
     sheet=1,
+    startCol=2,
     colTypes=c(rep("character",3),
       rep("numeric",2),
       rep("character",8),
@@ -138,11 +139,13 @@ species=unique(master$SPECIES)
 ## Standardize all estimates to one basket
 master$Quantity=as.numeric(as.character(master$Quantity))
 master$estBasket=master$Quantity/master$BasketLevel
+## Remove any duplicate records from the data
+master=subset(master,duplicated(master$ID)==FALSE)
 ## Set the working directory to store output plots
 setwd("C:/Users/George/Desktop/Autotask Workplace/Electronic Monitoring/Georges Analyses/Volumetric/Plots/")
 ## Analyze each species individually
 for(s in species){
-  a=subset(master,master$SPECIES==s)
+  a=subset(master,master$SPECIES==s&is.na(master$estBasket)==FALSE)
   if(nrow(a)>2){
     png(
       filename=paste0(s,"_BasketDistribution_",Sys.Date(),".png")
