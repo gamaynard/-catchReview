@@ -29,7 +29,7 @@ options(scipen = 6, digits = 4) # eliminate scientific notation
 ## ---------------------------
 
 ## load up the packages we will need:  (uncomment as required)
-
+library(truncnorm)
 ## ---------------------------
 
 ## load up our functions into memory
@@ -52,316 +52,390 @@ lengths=read.csv("C:/Users/George/Desktop/Autotask Workplace/Electronic Monitori
 ## actual lengths recorded
 lengths=subset(lengths,lengths$SPECIES=="HADDOCK")
 lengths=subset(lengths,lengths$GEAR=="Longline")
+realDiscs=aggregate(lengths$QUANTITY~lengths$VTR,FUN="sum")
 lengths=subset(lengths,is.na(lengths$LENGTH)==FALSE)
 lengths=subset(lengths,lengths$LENGTH>5)
 
+## Specify a number of simulations to run
+input$simulations=10000
+
+## Create a data frame to store simulation outputs
+output=list()
+output$results=data.frame(
+  simNum=as.numeric(),
+  stringsFished=as.numeric(),
+  discards=as.numeric(),
+  known=as.numeric(),
+  RestR=as.numeric(),
+  RestF=as.numeric(),
+  RestM=as.numeric(),
+  RestL=as.numeric(),
+  FestR=as.numeric(),
+  FestF=as.numeric(),
+  FestM=as.numeric(),
+  FestL=as.numeric()
+)
 ## for the purposes of this simulation, we will focus on a single trip
 ## based on data from FY17-FY19, captains fish an average of 6.9 +/- 1.8 strings
 ## per trip. The user will be able to specify how many strings to simulate
 ## between 3 and 11
-input$stringsFished=7
+stringsFished=round(
+  rtruncnorm(
+    n=input$simulations,
+    a=1,
+    mean=6.9,
+    sd=1.8
+  ),0
+)
+
+## sample size can be between 1 and 30
+input$samplesize=30
 
 ## haddock discards per trip range from 8 to 809, with a mean of 265 (+/- 120)
 ## the user can specify how many discards occur on the trip, keeping in mind 
 ## that the number of discards must be greater than the subsample size
-input$discards=265
+discards=sample(
+  subset(
+    realDiscs[,2],
+    realDiscs[,2]>input$samplesize
+  ),
+  input$simulations,
+  replace=TRUE
+  )
 
-## sample size can be between 1 and 30
-input$samplesize=5
 
 ## sampling can be random or first 'n'
-input$sampling='random'
+# input$sampling='first n'
 
 ## discards can be evenly distributed among strings, random,
 ## biased to the middle, or skewed towards one of the ends
 input$DPS='random'
 
-## sample the vector of real lengths input$discards times to create a vector of 
-## discard lengths for the trip
-tripDisc=sample(
-  x=lengths$LENGTH,
-  size=input$discards,
-  replace=TRUE
-  )
-
-## assign each discard to a string based on input$DPS
-strings=list()
-############### For evenly distributed discards
-if(input$DPS=='even'){
-  for(i in seq(1,input$stringsFished-1,1)){
-    strings[[i]]=sample(
-      x=subset(
-        seq(1,input$discards,1),
-        seq(1,input$discards,1)%in%unlist(strings)==FALSE
-      ),
-      size=round(input$discards/input$stringsFished,0),
-      replace=FALSE
+## For each simulation
+for(sim in 1:input$simulations){
+  input$stringsFished=stringsFished[sim]
+  input$discards=discards[sim]
+  ## sample the vector of real lengths input$discards times to create a vector of 
+  ## discard lengths for the trip
+  tripDisc=sample(
+    x=lengths$LENGTH,
+    size=input$discards,
+    replace=TRUE
     )
-  }
-  strings[[input$stringsFished]]=subset(
-    seq(1,input$discards,1),
-    seq(1,input$discards,1)%in%unlist(strings)==FALSE
-  )
-}
-
-############### For skewed discards
-if(input$DPS=='skewed to first' || input$DPS=='skewed to last'||input$DPS=='biased to mid'){
-  a=input$discards
-  for(i in seq(1,input$stringsFished-1,1)){
-    if(a>0){
-      b=sample(
-        a,
-        1
-      )
+step="Create strings"  
+  ## assign each discard to a string based on input$DPS
+  strings=list()
+  ############### For evenly distributed discards
+  if(input$DPS=='even'){
+    for(i in seq(1,input$stringsFished-1,1)){
       strings[[i]]=sample(
         x=subset(
           seq(1,input$discards,1),
           seq(1,input$discards,1)%in%unlist(strings)==FALSE
         ),
-        size=b,
+        size=round(input$discards/input$stringsFished,0),
         replace=FALSE
       )
-      a=a-b
-    } else {
-      strings[[i]]=0
     }
-  }
-  if(a>0){
     strings[[input$stringsFished]]=subset(
       seq(1,input$discards,1),
       seq(1,input$discards,1)%in%unlist(strings)==FALSE
     )
-  } else {
-    strings[[input$stringsFished]]=0
   }
-  if(input$DPS=='skewed to last'){
-    strings=rev(strings)
-  }
-  if(input$DPS=='biased to mid'){
-    a=strings
-    b=lengths(strings)
-    strings=list()
-    for(i in 1:length(a)){
-      strings[[i]]=0
+  
+  ############### For skewed discards
+  if(input$DPS=='skewed to first' || input$DPS=='skewed to last'||input$DPS=='biased to mid'){
+    a=input$discards
+    for(i in seq(1,input$stringsFished-1,1)){
+      if(a>0){
+        b=sample(
+          a,
+          1
+        )
+        strings[[i]]=sample(
+          x=subset(
+            seq(1,input$discards,1),
+            seq(1,input$discards,1)%in%unlist(strings)==FALSE
+          ),
+          size=b,
+          replace=FALSE
+        )
+        a=a-b
+      } else {
+        strings[[i]]=0
+      }
     }
-    d=order(b)
-    a=a[d]
-    e=round(input$stringsFished/2,0)
-    strings[[e]]=a[[length(a)]]
-    a=a[-length(a)]
-    g=seq(1,input$stringsFished,1)
-    for(i in seq(
-      1,
-      round(
-        length(
-          subset(g,g!=e)
-          )/2,0
-        ),
-      1)
-      ){
-      strings[[e-i]]=a[[length(a)]]
-      a=a[-length(a)]
-      strings[[e+i]]=a[[length(a)]]
-      a=a[-length(a)]
-    }
-  }
-}
-############### For random discards
-if(input$DPS=='random'){
-  a=runif(input$stringsFished,0,1)
-  b=a/sum(a)
-  b=round(b*input$discards,0)
-  while(sum(b)>265){
-    x=sample(1:input$stringsFished,1)
-    b[x]=b[x]-1
-  }
-  while(sum(b)<265){
-    x=sample(1:input$stringsFished,1)
-    b[x]=b[x]+1
-  }
-  for(i in 1:input$stringsFished){
-    strings[[i]]=sample(
-      x=subset(
+    if(a>0){
+      strings[[input$stringsFished]]=subset(
         seq(1,input$discards,1),
         seq(1,input$discards,1)%in%unlist(strings)==FALSE
-      ),
-      size=b[i],
-      replace=FALSE
-    )
-  }
-}
-
-## Plot the distribution of discards by string
-barplot(
-  height=lengths(strings),
-  names.arg=seq(1,input$stringsFished,1),
-  col='lightgray',
-  xlab='String Number',
-  ylab='Haddock Discarded'
-)
-## assign each fish a length
-for(i in 1:length(strings)){
-  if(strings[[i]][1]==0){
-    strings[[i]]=NA
-  } else {
-    strings[[i]]=tripDisc[strings[[i]]]
-  }
-}
-
-## within each string, discards can be distributed randomly, or larger discards
-## could be biased to the middle, or biased towards one end, we will test all of 
-## these scenarios and display the results
-## Clear all strings with no discards
-strings=subset(strings,is.na(strings)==FALSE)
-stringsMid=strings
-stringsFirst=strings
-stringsLast=strings
-for(i in 1:input$stringsFished){
-  stringsFirst[[i]]=rev(strings[[i]][order(strings[[i]])])
-  stringsLast[[i]]=strings[[i]][order(strings[[i]])]
-  a=stringsMid[[i]]
-  b=which(a==max(a))[1]
-  d=a[b]
-  e=round(length(stringsMid[[i]])/2,0)
-  a=a[-b]
-  a=a[order(a)]
-  stringsMid[[i]][e]=d
-  if(length(stringsMid[[i]])>1){
-    for(j in seq(1,e,1)){
-      if(length(stringsMid[[i]])>=(e+j)){
-        stringsMid[[i]][e+j]=a[length(a)]
+      )
+    } else {
+      strings[[input$stringsFished]]=0
+    }
+    if(input$DPS=='skewed to last'){
+      strings=rev(strings)
+    }
+    if(input$DPS=='biased to mid'){
+      a=strings
+      b=lengths(strings)
+      strings=list()
+      for(i in 1:length(a)){
+        strings[[i]]=0
+      }
+      d=order(b)
+      a=a[d]
+      e=round(input$stringsFished/2,0)
+      strings[[e]]=a[[length(a)]]
+      a=a[-length(a)]
+      g=seq(1,input$stringsFished,1)
+      for(i in seq(
+        1,
+        round(
+          length(
+            subset(g,g!=e)
+            )/2,0
+          ),
+        1)
+        ){
+        strings[[e-i]]=a[[length(a)]]
         a=a[-length(a)]
-        if((e-j)>0){
-          stringsMid[[i]][e-j]=a[length(a)]
+        strings[[e+i]]=a[[length(a)]]
+        a=a[-length(a)]
+      }
+    }
+  }
+  ############### For random discards
+  if(input$DPS=='random'){
+    a=runif(input$stringsFished,0,1)
+    b=a/sum(a)
+    b=round(b*input$discards,0)
+    while(sum(b)>input$discards){
+      x=sample(1:input$stringsFished,1)
+      if(b[x]!=0){
+        b[x]=b[x]-1
+      }
+    }
+    while(sum(b)<input$discards){
+      x=sample(1:input$stringsFished,1)
+      b[x]=b[x]+1
+    }
+    for(i in 1:input$stringsFished){
+      y=subset(
+        seq(1,input$discards,1),
+        seq(1,input$discards,1)%in%unlist(strings)==FALSE
+      )
+      if(is.null(length(y))==FALSE){
+        strings[[i]]=sample(
+          x=y,
+          size=b[i],
+          replace=FALSE
+        )
+      }
+    }
+    strings[sapply(strings, function(strings) length(strings)==0)]=0
+  }
+step="DPS Done"  
+  ## Plot the distribution of discards by string
+  # barplot(
+  #   height=lengths(strings),
+  #   names.arg=seq(1,input$stringsFished,1),
+  #   col='lightgray',
+  #   xlab='String Number',
+  #   ylab='Haddock Discarded'
+  # )
+  ## assign each fish a length
+  for(i in 1:length(strings)){
+    if(strings[[i]][1]==0){
+      strings[[i]]=NA
+    } else {
+      strings[[i]]=tripDisc[strings[[i]]]
+    }
+  }
+step="Fish have lengths"  
+  ## within each string, discards can be distributed randomly, or larger discards
+  ## could be biased to the middle, or biased towards one end, we will test all of 
+  ## these scenarios and display the results
+  ## Clear all strings with no discards
+  strings=subset(strings,is.na(strings)==FALSE)
+  stringsMid=strings
+  stringsFirst=strings
+  stringsLast=strings
+  for(i in 1:length(strings)){
+    stringsFirst[[i]]=rev(strings[[i]][order(strings[[i]])])
+    stringsLast[[i]]=strings[[i]][order(strings[[i]])]
+    a=stringsMid[[i]]
+    b=which(a==max(a))[1]
+    d=a[b]
+    e=round(length(stringsMid[[i]])/2,0)
+    a=a[-b]
+    a=a[order(a)]
+    stringsMid[[i]][e]=d
+    if(length(stringsMid[[i]])>1){
+      for(j in seq(1,e,1)){
+        if(length(stringsMid[[i]])>=(e+j)){
+          stringsMid[[i]][e+j]=a[length(a)]
           a=a[-length(a)]
+          if((e-j)>0){
+            stringsMid[[i]][e-j]=a[length(a)]
+            a=a[-length(a)]
+          }
         }
       }
     }
   }
-}
-barplot(
-  strings[[which(lengths(strings)==max(lengths(strings)))]],
-  col='white',
-  border='white',
-  ylab="Length (cm)",
-  main="Randomly Distributed Lengths"
+  # barplot(
+  #   strings[[which(lengths(strings)==max(lengths(strings)))]],
+  #   col='white',
+  #   border='white',
+  #   ylab="Length (cm)",
+  #   main="Randomly Distributed Lengths"
+  #   )
+  # for(i in 1:length(strings)){
+  #   barplot(
+  #     strings[[i]],
+  #     col=i,
+  #     add=TRUE
+  #   )
+  # }
+  # barplot(
+  #   stringsFirst[[which(lengths(stringsFirst)==max(lengths(stringsFirst)))]],
+  #   col='white',
+  #   border='white',
+  #   ylab="Length (cm)",
+  #   main="First Fish are Biggest"
+  # )
+  # for(i in 1:length(stringsFirst)){
+  #   barplot(
+  #     stringsFirst[[i]],
+  #     col=i,
+  #     add=TRUE
+  #   )
+  # }
+  # barplot(
+  #   stringsLast[[which(lengths(stringsLast)==max(lengths(stringsLast)))]],
+  #   col='white',
+  #   border='white',
+  #   ylab="Length (cm)",
+  #   main="Last Fish are Biggest"
+  # )
+  # for(i in 1:length(stringsLast)){
+  #   barplot(
+  #     stringsLast[[i]],
+  #     col=i,
+  #     add=TRUE
+  #   )
+  # }
+  # barplot(
+  #   stringsMid[[which(lengths(stringsMid)==max(lengths(stringsMid)))]],
+  #   col='white',
+  #   border='white',
+  #   ylab="Length (cm)",
+  #   main="Middle Fish are Biggest"
+  # )
+  # for(i in 1:length(stringsMid)){
+  #   barplot(
+  #     stringsMid[[i]],
+  #     col=i,
+  #     add=TRUE
+  #   )
+  # }
+  # 
+step="Trip simulation finished"
+  ## Create one vector to represent the trip under the four conditions
+  strings=unlist(strings)
+  stringsFirst=unlist(strings)
+  stringsMid=unlist(strings)
+  stringsLast=unlist(strings)
+  
+  ## estimate a weight for each vector if sampling is done randomly
+  RestS=sample(
+    strings,
+    input$samplesize,
+    replace=FALSE
+    )
+  RestF=sample(
+    stringsFirst,
+    input$samplesize,
+    replace=FALSE
   )
-for(i in 1:length(strings)){
-  barplot(
-    strings[[i]],
-    col=i,
-    add=TRUE
+  RestM=sample(
+    stringsMid,
+    input$samplesize,
+    replace=FALSE
   )
-}
-barplot(
-  stringsFirst[[which(lengths(stringsFirst)==max(lengths(stringsFirst)))]],
-  col='white',
-  border='white',
-  ylab="Length (cm)",
-  main="First Fish are Biggest"
-)
-for(i in 1:length(stringsFirst)){
-  barplot(
-    stringsFirst[[i]],
-    col=i,
-    add=TRUE
+  RestL=sample(
+    stringsLast,
+    input$samplesize,
+    replace=FALSE
   )
-}
-barplot(
-  stringsLast[[which(lengths(stringsLast)==max(lengths(stringsLast)))]],
-  col='white',
-  border='white',
-  ylab="Length (cm)",
-  main="Last Fish are Biggest"
-)
-for(i in 1:length(stringsLast)){
-  barplot(
-    stringsLast[[i]],
-    col=i,
-    add=TRUE
-  )
-}
-barplot(
-  stringsMid[[which(lengths(stringsMid)==max(lengths(stringsMid)))]],
-  col='white',
-  border='white',
-  ylab="Length (cm)",
-  main="Middle Fish are Biggest"
-)
-for(i in 1:length(stringsMid)){
-  barplot(
-    stringsMid[[i]],
-    col=i,
-    add=TRUE
-  )
+  FestS=strings[1:input$samplesize]
+  FestF=stringsFirst[1:input$samplesize]
+  FestM=stringsMid[1:input$samplesize]
+  FestL=stringsLast[1:input$samplesize]
+  
+  ## Convert lengths to weights
+  kstrings=sum(exp(-11.8111+3.0888*log(strings))*2.204623)
+  kstringsFirst=sum(exp(-11.8111+3.0888*log(stringsFirst))*2.204623)
+  kstringsMid=sum(exp(-11.8111+3.0888*log(stringsMid))*2.204623)
+  kstringsLast=sum(exp(-11.8111+3.0888*log(stringsLast))*2.204623)
+  RestS=sum(exp(-11.8111+3.0888*log(RestS))*2.204623)/input$samplesize*input$discards
+  RestF=sum(exp(-11.8111+3.0888*log(RestF))*2.204623)/input$samplesize*input$discards
+  RestM=sum(exp(-11.8111+3.0888*log(RestM))*2.204623)/input$samplesize*input$discards
+  RestL=sum(exp(-11.8111+3.0888*log(RestL))*2.204623)/input$samplesize*input$discards
+  FestS=sum(exp(-11.8111+3.0888*log(FestS))*2.204623)/input$samplesize*input$discards
+  FestF=sum(exp(-11.8111+3.0888*log(FestF))*2.204623)/input$samplesize*input$discards
+  FestM=sum(exp(-11.8111+3.0888*log(FestM))*2.204623)/input$samplesize*input$discards
+  FestL=sum(exp(-11.8111+3.0888*log(FestL))*2.204623)/input$samplesize*input$discards
+
+  ## Store the data in the output dataframe
+  output$results[sim,]=NA
+  output$results$simNum[sim]=sim
+  output$results$stringsFished[sim]=input$stringsFished
+  output$results$discards[sim]=input$discards
+  output$results$known[sim]=kstrings
+  output$results$RestR[sim]=RestS
+  output$results$RestF[sim]=RestF
+  output$results$RestM[sim]=RestM
+  output$results$RestL[sim]=RestL
+  output$results$FestR[sim]=FestS
+  output$results$FestF[sim]=FestF
+  output$results$FestM[sim]=FestM
+  output$results$FestL[sim]=FestL
 }
 
-## Create one vector to represent the trip under the four conditions
-strings=unlist(strings)
-stringsFirst=unlist(strings)
-stringsMid=unlist(strings)
-stringsLast=unlist(strings)
-
-## estimate a weight for each vector
-estS=sample(
-  strings,
-  input$samplesize,
-  replace=FALSE
+data=output$results
+scenario="RestR"
+data$delta=data$known-data[,which(colnames(data)==scenario)]
+hist(
+  data$delta,
+  xlim=c(-100,100),
+  breaks=seq(-500,500,5),
+  col='darkgray',
+  xlab="Known Weight - Est. Weight (lbs)",
+  ylab="Simulated Trips",
+  main=paste0(scenario,": Sample size: ",input$samplesize)
+)
+legend(
+  "topright",
+  legend=c(
+    paste("Mean = ",round(mean(data$delta),3),sep=""),
+    paste("SD = ",round(sd(data$delta),3),sep="")
   )
-estF=sample(
-  stringsFirst,
-  input$samplesize,
-  replace=FALSE
 )
-estM=sample(
-  stringsMid,
-  input$samplesize,
-  replace=FALSE
+t.test(
+  x=data$RestR,
+  y=data$FestR
 )
-estL=sample(
-  stringsLast,
-  input$samplesize,
-  replace=FALSE
+t.test(
+  y=data$RestL,
+  x=data$FestL
 )
-## Convert lengths to weights
-kstrings=sum(exp(-11.8111+3.0888*log(strings))*2.204623)
-kstringsFirst=sum(exp(-11.8111+3.0888*log(stringsFirst))*2.204623)
-kstringsMid=sum(exp(-11.8111+3.0888*log(stringsMid))*2.204623)
-kstringsLast=sum(exp(-11.8111+3.0888*log(stringsLast))*2.204623)
-estS=sum(exp(-11.8111+3.0888*log(estS))*2.204623)/input$samplesize*input$discards
-estF=sum(exp(-11.8111+3.0888*log(estF))*2.204623)/input$samplesize*input$discards
-estM=sum(exp(-11.8111+3.0888*log(estM))*2.204623)/input$samplesize*input$discards
-estL=sum(exp(-11.8111+3.0888*log(estL))*2.204623)/input$samplesize*input$discards
-
-z=barplot(
-  c(
-    kstrings,
-    estS,
-    estF,
-    estM,
-    estL
-  ),
-  col=c(
-    'darkgray',
-    'purple',
-    'red',
-    'blue',
-    'orange'
-  ),
-  ylab="Haddock Discard Weight (lbs)",
-  main="",
-  names.arg=c(
-    'Known',
-    'Random',
-    'L First',
-    'L Mid',
-    'L Last'
-  ),
-  ylim=c(0,1.25*max(c(kstrings,estS,estF,estM,estL)))
+t.test(
+  x=data$RestM,
+  y=data$FestM
 )
-abline(h=kstrings,col='black',lty=2)
-text(
-  x=z,
-  y=0.5*max(c(kstrings,estS,estF,estM,estL)),
-  labels=round(c(kstrings,estS,estF,estM,estL)-kstrings,1)
+t.test(
+  x=data$RestF,
+  y=data$FestF
 )
