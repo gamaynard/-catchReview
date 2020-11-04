@@ -30,6 +30,8 @@ options(scipen = 6, digits = 4) # eliminate scientific notation
 ## load up the packages we will need:  (uncomment as required)
 library(RJSONIO)
 library(XLConnect)
+library(lubridate)
+library(stringdist)
 ## ---------------------------
 
 ## load up our functions into memory
@@ -156,4 +158,196 @@ for(i in 1:length(EM_JSON)){
     }
   }
 }
-## 
+## Create interoperable data sets that have all the information of interest
+## Read in the species standardization list
+species=read.csv(
+  "https://raw.githubusercontent.com/gamaynard/ElectronicMonitoring/master/species.csv"
+)
+## ---------------------------
+## VTR data
+iVTR=VTR[,c(
+  "DATE_SAIL",
+  "DATE_LAND",
+  "VESSEL_PERMIT_NUM",
+  "SERIAL_NUM",
+  "GEARCODE",
+  "GEARQTY",
+  "GEARSIZE",
+  "AREA",
+  "LAT_DEGREE",
+  "LAT_MINUTE",
+  "LAT_SECOND",
+  "LON_DEGREE",
+  "LON_MINUTE",
+  "LON_SECOND",
+  "NTOWS",
+  "DATETIME_HAUL_START",
+  "DATETIME_HAUL_END",
+  "SPECIES_ID",
+  "KEPT",
+  "DISCARDED",
+  "PORT_LANDED"
+)]
+colnames(iVTR)=tolower(
+  colnames(iVTR)
+)
+## SAILDATE should be a POSIX value
+iVTR$SAILDATE=ymd_hms(
+  as.character(iVTR$date_sail)
+  )
+## LANDDATE should be a POSIX value
+iVTR$LANDDATE=ymd_hms(
+  as.character(iVTR$date_land)
+)
+## PERMIT should be a character string
+iVTR$PERMIT=as.character(
+  iVTR$vessel_permit_num
+)
+## Combine degrees, minutes, and seconds into decimal degrees for both latitude
+## and longitude
+iVTR$LAT=iVTR$lat_degree+iVTR$lat_minute/60+iVTR$lat_second/(60^2)
+iVTR$LON=iVTR$lon_degree-iVTR$lon_minute/60-iVTR$lon_second/(60^2)
+## Replace Gear Codes with human-readable values
+iVTR$GEAR=ifelse(iVTR$gearcode=="GNS","GILLNET",
+  ifelse(iVTR$gearcode=="HND","JIG",
+    ifelse(iVTR$gearcode=="LLB","LONGLINE",
+      ifelse(iVTR$gearcode=="OTF","TRAWL",
+        ifelse(iVTR$gearcode=="PTL","LOBSTER POT",
+          iVTR$gearcode
+          )
+        )
+      )
+    )
+  )
+## Ensure stat areas are reported as numbers
+iVTR$AREA=as.numeric(
+  as.character(
+    iVTR$area
+  )
+)
+## Trim serial numbers to generate VTR numbers
+iVTR$VTR=NA
+iVTR$VTR=ifelse(
+  nchar(iVTR$serial_num)==16,
+  substr(
+    iVTR$serial_num,1,14
+    ),
+  iVTR$VTR
+)
+## Standardize species names
+iVTR$SPECIES=NA
+for(i in 1:nrow(iVTR)){
+  iVTR$SPECIES[i]=as.character(
+    species$AFS[
+      which(
+        stringsim(
+          a=as.character(iVTR$species_id[i]),
+          b=as.character(species$PEBKAC)
+        )==max(  
+          stringsim(
+            a=as.character(iVTR$species_id[i]),
+            b=as.character(species$PEBKAC)
+          )
+        )
+      )[1]
+      ]
+  )
+}
+## Haul start and end times should be POSIX formatted values
+iVTR$HAULSTART=ymd_hms(
+  as.character(
+    iVTR$datetime_haul_start
+    )
+  )
+iVTR$HAULEND=ymd_hms(
+  as.character(
+    iVTR$datetime_haul_end
+  )
+)
+## Kept and discarded weights should be numeric
+iVTR$KEPT=as.numeric(
+  as.character(
+    iVTR$kept
+    )
+  )
+iVTR$DISCARDED=as.numeric(
+  as.character(
+    iVTR$discarded
+  )
+)
+## ---------------------------
+## EM data
+## because the EM data frame is already a modification of the original data, the
+## script works on it directly
+## The VTR column is already a character vector (to avoid loss of leading zeros)
+## The VESSEL column is already a character vector
+## The HAUL_NO column is already an integer
+## The startTime column needs to be converted to a POSIX value
+EM$STARTTIME=ymd_hm(
+  as.character(
+    EM$startTime
+    )
+  )
+## The endTime column needs to be converted to a POSIX value
+EM$ENDTIME=ymd_hm(
+  as.character(
+    EM$endTime
+  )
+)
+## The startLat column needs to be converted to a number
+EM$STARTLAT=as.numeric(
+  as.character(
+    EM$startLat
+  )
+)
+## The startLon column needs to be converted to a number
+EM$STARTLON=as.numeric(
+  as.character(
+    EM$startLon
+  )
+)
+## Create a standardized species column
+EM$SPECIES=NA
+for(i in 1:nrow(EM)){
+  EM$SPECIES[i]=as.character(
+    species$AFS[
+      which(
+        stringsim(
+          a=as.character(EM$species[i]),
+          b=as.character(species$PEBKAC)
+        )==max(  
+          stringsim(
+            a=as.character(EM$species[i]),
+            b=as.character(species$PEBKAC)
+          )
+        )
+      )[1]
+    ]
+  )
+}
+## Discard Count needs to be a number
+EM$DiscardCount=as.numeric(
+  as.character(
+    EM$count
+    )
+  )
+## DiscardWeight needs to be a number
+EM$DiscardWeight=as.numeric(
+  as.character(
+    EM$weight
+  )
+)
+## ---------------------------
+## Dealer data
+iDealer=Dealer[,c(
+  "Mri",
+  "Vessel.Permit.No",
+  "Vessel.Name",
+  "Vessel.Reg.No",
+  "Vtr.Serial.No",
+  "State.Land",
+  "Port.Land",
+  "Species.Itis",
+  "Landed.Weight",
+  "Live.Weight"
+)]
