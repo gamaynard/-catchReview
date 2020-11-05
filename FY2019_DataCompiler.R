@@ -351,3 +351,32 @@ iDealer=Dealer[,c(
   "Landed.Weight",
   "Live.Weight"
 )]
+## Permit numbers should be character strings to maintain leading zeros
+iDealer$PERMIT=as.character(
+  iDealer$Vessel.Permit.No
+  )
+## Vessel names should be all caps
+iDealer$Vessel.Name=toupper(
+  as.character(
+    iDealer$Vessel.Name
+  )
+)
+## VTR numbers should be character strings to maintain leading zeros
+iDealer$VTR=as.character(
+  iDealer$Vtr.Serial.No
+  )
+## Species names can be converted directly frim ITIS numbers
+iDealer$SPECIES=NA
+for(i in 1:nrow(iDealer)){
+  itis=iDealer$Species.Itis[i]
+  iDealer$SPECIES[i]=as.character(
+    unique(
+      species[
+        which(
+          species$ITIS==itis
+        ),
+        "AFS"
+      ]
+    )
+  )
+}
