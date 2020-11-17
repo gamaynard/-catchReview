@@ -32,11 +32,22 @@ library(RJSONIO)
 library(XLConnect)
 library(lubridate)
 library(stringdist)
+library(rgdal)
+library(zip)
+library(sp)
+library(marmap)
+library(devtools)
 ## ---------------------------
 
 ## load up our functions into memory
-
+## The marmap library is partly deprecated because of NOAA's website updates
+## Users in the GitHub community have developed a new function, and the code
+## below downloads the most recent version from Eric Plante's GitHub repo
+source_url(
+  url="https://raw.githubusercontent.com/ericpante/marmap/master/R/getNOAA.bathy.R"
+)
 ## ---------------------------
+
 ## The three datasets that make up the basis of this analysis are the FY2019 VTR
 ## data (requested from GARFO), the FY2019 EM data (requested from Teem.Fish),
 ## and the FY2019 Dealer Data (requested from sector managers). The next step
@@ -71,10 +82,28 @@ for(i in 1:length(fileList)){
       x=filename
     )==FALSE
   ){
-    partial=XLConnect::readWorksheetFromFile(
-      file=filename,
-      sheet=1
-    )
+    if(
+      grepl(
+        pattern=".xlsx",
+        x=filename
+      )==TRUE
+    ){
+      partial=XLConnect::readWorksheetFromFile(
+        file=filename,
+        sheet=1
+      )
+    } else {
+      if(
+        grepl(
+          pattern=".csv",
+          x=filename
+        )==TRUE
+      ){
+        partial=read.csv(
+          file=filename
+        )
+      }
+    }
   } else {
     partial=XLConnect::readWorksheetFromFile(
       file=filename,
@@ -380,3 +409,216 @@ for(i in 1:nrow(iDealer)){
     )
   )
 }
+## Live weights should be reported as numbers
+iDealer$WEIGHT=as.numeric(
+  as.character(
+    iDealer$Live.Weight
+  )
+)
+## ---------------------------
+## All data are standardized and ready for analysis
+## ---------------------------
+## Create a new data frame to store information about whether trips took place 
+## inside closed areas or not
+CA=data.frame(
+  VTR=as.character(),
+  LAT=as.numeric(),
+  LON=as.numeric(),
+  CAII=as.logical(),
+  CL=as.logical(),
+  WGOM=as.logical(),
+  OUT=as.logical()
+)
+## Read in spatial data for all EM reviews
+for(i in 1:nrow(EM)){
+  vtr=EM$VTR[i]
+  lat=EM$STARTLAT[i]
+  lon=EM$STARTLON[i]
+  new=data.frame(
+    VTR=as.character(vtr),
+    LAT=as.numeric(lat),
+    LON=as.numeric(lon),
+    CAII=NA,
+    CL=NA,
+    WGOM=NA,
+    OUT=NA
+  )
+  CA=rbind(CA,new)
+  rm(new)
+}
+## Read in spatial data for all VTRs
+for(i in 1:nrow(iVTR)){
+  vtr=iVTR$VTR[i]
+  lat=iVTR$LAT[i]
+  lon=iVTR$LON[i]
+  new=data.frame(
+    VTR=as.character(vtr),
+    LAT=as.numeric(lat),
+    LON=as.numeric(lon),
+    CAI=NA,
+    CAII=NA,
+    CL=NA,
+    WGOM=NA,
+    OUT=NA
+  )
+  CA=rbind(CA,new)
+  rm(new)
+}
+## Remove all duplicate entries from the spatial data frame
+CA$dup=duplicated(CA)
+CA=subset(
+  CA,
+  CA$dup==FALSE
+)
+CA$dup=NULL
+## Remove all trips with a malfunctioning GPS
+CA=subset(
+  CA,
+  CA$LAT>20 & abs(CA$LON)>20
+)
+## Download groundfish closures from the NOAA website as a .zip archive of 
+## shapefiles into a temporary file
+dest_file="AllCA.zip"
+urlzip="https://s3.amazonaws.com/media.fisheries.noaa.gov/2020-09/Groundfish_Closure_Areas_20180409_0.zip?ON7sHgWHiJxpWm.B1IW5REVNRKhUvMrz"
+download.file(
+  url=urlzip,
+  destfile=dest_file,
+  mode="wb"
+)
+zip::unzip(
+  zipfile=dest_file,
+  exdir="AllCA"
+)
+## Read in the shapefile that contains all closed areas
+AllCA=readOGR(
+  dsn="AllCA/Groundfish_Closure_Areas/Groundfish_Closure_Areas.shp"
+)
+## Break up the shapefile into individual closed areas
+## In FY2019, the closed area list includes the following:
+## Cashes Ledge Closure
+CL=AllCA[AllCA$AREANAME=="Cashes Ledge Closure Area",]
+## Closed Area II
+CA2=AllCA[AllCA$AREANAME=="Closed Area II Closure Area",]
+## Western Gulf of Maine
+WGOM=AllCA[AllCA$AREANAME=="Western Gulf of Maine Closure Area",]
+
+## Remove the temporary files from the directory
+unlink("AllCA.zip")
+unlink(
+  "AllCA",
+  recursive=TRUE
+  )
+rm(AllCA)
+for(i in 1:nrow(CA)){
+  ## Separate the individual trip out
+  trip=CA[i,]
+  ## Assign the trip a spatial reference
+  coordinates(trip)=~LON+LAT
+  ## Reproject the trip to the same coordinate system as the closed area 
+  ## shapefiles
+  proj4string(trip)=proj4string(CL)
+  ## Check to see if each trip overlaps with the boundaries of Cashes Ledge
+  if(is.na(over(trip,CL)$AREANAME)==TRUE){
+    CA$CL[i]=FALSE
+  } else {
+    CA$CL[i]=ifelse(
+      as.character(over(trip,CL)$AREANAME)=="Cashes Ledge Closure Area",
+      TRUE,
+      FALSE
+    )
+  }
+  ## Check to see if each trip overlaps with the boundaries of Closed Area II
+  if(is.na(over(trip,CA2)$AREANAME)==TRUE){
+    CA$CAII[i]=FALSE
+  } else {
+    CA$CAII[i]=ifelse(
+      as.character(over(trip,CA2)$AREANAME)=="Closed Area II Closure Area",
+      TRUE,
+      FALSE
+    )
+  }
+  ## Check to see if each trip overlaps with the boundaries of the WGOM
+  if(is.na(over(trip,WGOM)$AREANAME)==TRUE){
+    CA$WGOM[i]=FALSE
+  } else {
+    CA$WGOM[i]=ifelse(
+      as.character(over(trip,WGOM)$AREANAME)=="Western Gulf of Maine Closure Area",
+      TRUE,
+      FALSE
+    )
+  }
+  ## If the trips do not take place in a closed area, label them as OUT
+  CA$OUT[i]=ifelse(
+    CA$CAII[i]+CA$CL[i]+CA$WGOM[i]==0,
+    TRUE,
+    FALSE
+  )
+}
+## Create a table of trips by closed area and vessel
+CAV=data.frame(
+  VESSEL=as.character(),
+  CAII=as.numeric(),
+  CL=as.numeric(),
+  WGOM=as.numeric(),
+  OUT=as.numeric()
+)
+## Link each VTR in the CA table with a vessel name
+CA$VESSEL=NA
+for(i in 1:nrow(CA)){
+  CA$VESSEL[i]=as.character(
+    unique(
+      EM$VESSEL[which(
+        EM$VTR==as.character(
+          CA$VTR[i]
+        )
+      )
+      ]
+    )
+  )
+}
+## Make a list of all unique vessels in the CA data frame
+VESSEL=unique(CA$VESSEL)[order(
+  unique(CA$VESSEL)
+  )]
+## For each vessel, total up how many trips it took inside and outside of the
+## closed areas
+for(i in 1:length(VESSEL)){
+  v=VESSEL[i]
+  x=subset(CA,CA$VESSEL==v)
+  ca2=sum(x$CAII)
+  cl=sum(x$CL)
+  wg=sum(x$WGOM)
+  o=sum(x$OUT)
+  y=data.frame(
+    VESSEL=v,
+    CAII=ca2,
+    CL=cl,
+    WGOM=wg,
+    OUT=o
+  )
+  CAV=rbind(CAV,y)
+}
+##########################################################################
+## Table 1 is CAV
+##########################################################################
+## Create a vector of blues for plotting a map of trips
+blues=c(
+  "lightsteelblue4", 
+  "lightsteelblue3", 
+  "lightsteelblue2", 
+  "lightsteelblue1"
+  )
+## Create a vector of grays for plotting a map of trips
+grays=c(
+  gray(0.6), 
+  gray(0.93), 
+  gray(0.99)
+  )
+## Download bathymetric data for plotting trip locations
+basemap=getNOAA.bathy(
+  lon1=-75, 
+  lon2=-65, 
+  lat1=40, 
+  lat2=48, 
+  resolution=5
+  )
