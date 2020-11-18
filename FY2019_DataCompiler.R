@@ -138,9 +138,6 @@ for(i in 1:length(EM_JSON)){
   vtr=trip$trip_id
   ## Extract the vessel name
   vessel=trip$vessel_name
-  if(vessel=="Alicia Ann"){
-    print(i)
-  }
   ## Extract the number of hauls
   hauls=trip$total_hauls
   ## Report discards haul by haul
