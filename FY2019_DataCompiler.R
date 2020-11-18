@@ -42,7 +42,7 @@ library(devtools)
 ## load up our functions into memory
 ## The marmap library is partly deprecated because of NOAA's website updates
 ## Users in the GitHub community have developed a new function, and the code
-## below downloads the most recent version from Eric Plante's GitHub repo
+## below downloads the most recent version from Eric Pante's GitHub repo
 source_url(
   url="https://raw.githubusercontent.com/ericpante/marmap/master/R/getNOAA.bathy.R"
 )
@@ -138,6 +138,9 @@ for(i in 1:length(EM_JSON)){
   vtr=trip$trip_id
   ## Extract the vessel name
   vessel=trip$vessel_name
+  if(vessel=="Alicia Ann"){
+    print(i)
+  }
   ## Extract the number of hauls
   hauls=trip$total_hauls
   ## Report discards haul by haul
@@ -231,6 +234,24 @@ iVTR$LANDDATE=ymd_hms(
 ## PERMIT should be a character string
 iVTR$PERMIT=as.character(
   iVTR$vessel_permit_num
+)
+## Check for NA values in the seconds columns of both latitude and longitude
+## and if they exist, replace them with zeros
+iVTR$lat_second=ifelse(
+  is.na(iVTR$lat_second),
+  0,
+  iVTR$lat_second
+)
+iVTR$lon_second=ifelse(
+  is.na(iVTR$lon_second),
+  0,
+  iVTR$lon_second
+)
+## All longitude values should be west of the Prime Meridian (negative)
+iVTR$lon_degree=ifelse(
+  iVTR$lon_degree>0,
+  iVTR$lon_degree*-1,
+  iVTR$lon_degree
 )
 ## Combine degrees, minutes, and seconds into decimal degrees for both latitude
 ## and longitude
@@ -385,7 +406,7 @@ iDealer$PERMIT=as.character(
   iDealer$Vessel.Permit.No
   )
 ## Vessel names should be all caps
-iDealer$Vessel.Name=toupper(
+iDealer$VESSEL=toupper(
   as.character(
     iDealer$Vessel.Name
   )
@@ -414,6 +435,73 @@ iDealer$WEIGHT=as.numeric(
   as.character(
     iDealer$Live.Weight
   )
+)
+
+## Convert permit numbers in the iVTR file to vessel names using the
+## reference values available in the iDealer file
+iVTR$VESSEL=NA
+for(i in 1:nrow(iVTR)){
+  if(iVTR$PERMIT[i]%in%iDealer$PERMIT){
+    iVTR$VESSEL[i]=unique(
+      iDealer$VESSEL[which(
+        iDealer$PERMIT==iVTR$PERMIT[i]
+      )]
+    )
+  } else {
+    iVTR$VESSEL[i]=NA
+  }
+}
+iVTR=subset(
+  iVTR,
+  is.na(iVTR$VESSEL)==FALSE
+)
+## Read in the audit selection file provided by TEEM FISH to double check the
+## results
+AUDIT=readWorksheetFromFile(
+  file="../ClosedAreaComparisons/FY19/RawData/Copy of 20200604_EFP_EM2_selected_trips.xlsx",
+  sheet=1
+)
+## Create a list of all potential VTR numbers in each data set
+AV=c(
+  unique(EM$VTR),
+  unique(iDealer$VTR),
+  unique(iVTR$VTR),
+  unique(subset(
+    AUDIT,
+    AUDIT$AUDIT_SELECTED==1
+  )$TRIP_ID)
+)
+## Remove duplicate values
+AV=subset(
+  AV,
+  duplicated(AV)==FALSE
+)
+## Create an empty data frame to store comparisons
+QC=data.frame(
+  VTR_SERIAL=as.character(),
+  AUDIT=as.logical(),
+  VTR=as.logical(),
+  EM=as.logical()
+)
+for(i in AV){
+  qc=data.frame(
+    VTR_SERIAL=as.character(i),
+    AUDIT=i%in%AUDIT$TRIP_ID,
+    VTR=i%in%iVTR$VTR,
+    EM=i%in%EM$VTR
+  )
+  QC=rbind(QC,qc)
+}
+## After conversations with TEEM FISH staff, it was determined that one 
+## group of trips were included erroneously (should be in FY18, not FY19)
+## so those data should be removed from the EM dataframe
+kill=subset(
+  QC,
+  QC$AUDIT==FALSE&QC$VTR==FALSE&QC$EM==TRUE
+)$VTR_SERIAL
+EM=subset(
+  EM,
+  EM$VTR%in%kill==FALSE
 )
 ## ---------------------------
 ## All data are standardized and ready for analysis
@@ -455,7 +543,6 @@ for(i in 1:nrow(iVTR)){
     VTR=as.character(vtr),
     LAT=as.numeric(lat),
     LON=as.numeric(lon),
-    CAI=NA,
     CAII=NA,
     CL=NA,
     WGOM=NA,
@@ -476,6 +563,8 @@ CA=subset(
   CA,
   CA$LAT>20 & abs(CA$LON)>20
 )
+## Add a column to record whether a trip was audited or not
+CA$EM=NA
 ## Download groundfish closures from the NOAA website as a .zip archive of 
 ## shapefiles into a temporary file
 dest_file="AllCA.zip"
@@ -508,7 +597,6 @@ unlink(
   "AllCA",
   recursive=TRUE
   )
-rm(AllCA)
 for(i in 1:nrow(CA)){
   ## Separate the individual trip out
   trip=CA[i,]
@@ -553,8 +641,38 @@ for(i in 1:nrow(CA)){
     TRUE,
     FALSE
   )
+  ## Finally, check each trip to see if it was audited by the EM program
+  CA$EM=ifelse(
+    CA$VTR%in%EM$VTR,
+    TRUE,
+    FALSE
+  )
 }
-## Create a table of trips by closed area and vessel
+## Link each VTR in the CA table with a vessel name
+CA$VESSEL=NA
+for(i in 1:nrow(CA)){
+  if(as.character(CA$VTR[i])%in%iVTR$VTR){
+    CA$VESSEL[i]=as.character(
+      unique(
+        iVTR$VESSEL[which(
+          iVTR$VTR==as.character(
+            CA$VTR[i]
+          )
+        )
+        ]
+      )
+    )
+  }
+}
+## Make a list of all unique vessels in the CA data frame
+VESSEL=unique(CA$VESSEL)[order(
+  unique(CA$VESSEL)
+  )]
+VESSEL=subset(VESSEL,is.na(VESSEL)==FALSE)
+##########################################################################
+## Table 1a is CAV
+##########################################################################
+## Create a table to store trips by closed area and vessel
 CAV=data.frame(
   VESSEL=as.character(),
   CAII=as.numeric(),
@@ -562,24 +680,6 @@ CAV=data.frame(
   WGOM=as.numeric(),
   OUT=as.numeric()
 )
-## Link each VTR in the CA table with a vessel name
-CA$VESSEL=NA
-for(i in 1:nrow(CA)){
-  CA$VESSEL[i]=as.character(
-    unique(
-      EM$VESSEL[which(
-        EM$VTR==as.character(
-          CA$VTR[i]
-        )
-      )
-      ]
-    )
-  )
-}
-## Make a list of all unique vessels in the CA data frame
-VESSEL=unique(CA$VESSEL)[order(
-  unique(CA$VESSEL)
-  )]
 ## For each vessel, total up how many trips it took inside and outside of the
 ## closed areas
 for(i in 1:length(VESSEL)){
@@ -599,7 +699,31 @@ for(i in 1:length(VESSEL)){
   CAV=rbind(CAV,y)
 }
 ##########################################################################
-## Table 1 is CAV
+
+##########################################################################
+## Table 1b is a new table that shows the number of trips a vessel took vs
+## the number of trips that were audited. 
+##########################################################################
+CAA=data.frame(
+  VESSEL=as.character(),
+  TRIPS=as.numeric(),
+  AUDITED=as.numeric()
+)
+for(i in 1:length(VESSEL)){
+  v=VESSEL[i]
+  x=subset(CA,CA$VESSEL==v)
+  trips=nrow(x)
+  a=sum(x$EM)
+  y=data.frame(
+    VESSEL=v,
+    TRIPS=trips,
+    AUDITED=a
+  )
+  CAA=rbind(CAA,y)
+}
+##########################################################################
+##########################################################################
+## Code to plot Figure 1 below
 ##########################################################################
 ## Create a vector of blues for plotting a map of trips
 blues=c(
@@ -622,3 +746,72 @@ basemap=getNOAA.bathy(
   lat2=48, 
   resolution=5
   )
+## Plot the bathymetric map as a background
+plot(
+  basemap, 
+  image = TRUE, 
+  land = TRUE, 
+  deep=-100000, 
+  shallow=0, 
+  step=999999, 
+  drawlabels = FALSE, 
+  bpal = list(
+    c(
+      min(basemap,na.rm=TRUE),
+      0, 
+      blues
+      ), 
+    c(
+      0, 
+      max(basemap, na.rm=TRUE), 
+      grays
+      )
+    ), 
+  lwd = 0.1
+  )
+## Add a point for each of the trips (red for unaudited, blue for audited)
+points(
+  x=subset(CA,CA$EM==FALSE)$LON,
+  y=subset(CA,CA$EM==FALSE)$LAT,
+  pch=22,
+  col='black',
+  bg='red'
+  )
+points(
+  x=subset(CA,CA$EM==TRUE)$LON,
+  y=subset(CA,CA$EM==TRUE)$LAT,
+  pch=22,
+  col='black',
+  bg='blue'
+)
+## Add the Closed Area shapes
+plot(
+  AllCA,
+  lwd=1,
+  add=TRUE,
+  dens=25,
+  angle=45
+)
+plot(
+  AllCA,
+  lwd=3,
+  add=TRUE
+)
+##########################################################################
+## Cod Discard Records
+## Create an empty data frame to store the records
+CodDiscards=data.frame(
+  VTR=as.character(),
+  
+)
+## For each trip, pull EM data (if available). If not, use the VTR data. 
+for(i in 1:nrow(CA)){
+  trip=CA$VTR[i]
+  em=subset(EM,EM$VTR==trip)
+  coddisc=sum(
+    subset(em,em$SPECIES=="ATLANTIC COD")$DiscardWeight
+  )
+}
+
+
+## CONVERT VESSEL NUMBERS TO VESSELS IN iVTR DATA
