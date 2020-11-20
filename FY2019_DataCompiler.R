@@ -110,6 +110,16 @@ for(i in 1:length(fileList)){
       sheet="dealer"
     )
   }
+  ## Sometimes the SIMM exports the first column with an extra space in the
+  ## column name, so check for that and correct it if it exists
+  colnames(partial)[1]=ifelse(
+    grepl(
+      pattern="Sector.Id",
+      x=colnames(partial)[1]
+      ),
+    "Sector.Id",
+    "ERROR"
+  )
   Dealer=rbind(Dealer,partial)
 }
 ## The next step is to turn the .json EM file into a dataframe to enable merging
@@ -281,6 +291,13 @@ iVTR$VTR=ifelse(
     ),
   iVTR$VTR
 )
+## Any trips with paper trip reports only have an 8 character identifier and
+## should be excluded from this analysis, as they are likely declared out of
+## fishery
+iVTR=subset(
+  iVTR,
+  nchar(iVTR$serial_num)==16
+)
 ## Standardize species names
 iVTR$SPECIES=NA
 for(i in 1:nrow(iVTR)){
@@ -322,6 +339,7 @@ iVTR$DISCARDED=as.numeric(
     iVTR$discarded
   )
 )
+## Some VTR records only have a "serial number" instead of a 
 ## ---------------------------
 ## EM data
 ## because the EM data frame is already a modification of the original data, the
@@ -492,10 +510,12 @@ for(i in AV){
 ## After conversations with TEEM FISH staff, it was determined that one 
 ## group of trips were included erroneously (should be in FY18, not FY19)
 ## so those data should be removed from the EM dataframe
-kill=subset(
-  QC,
-  QC$AUDIT==FALSE&QC$VTR==FALSE&QC$EM==TRUE
-)$VTR_SERIAL
+kill=as.character(
+  subset(
+    QC,
+    QC$AUDIT==FALSE&QC$VTR==FALSE&QC$EM==TRUE
+  )$VTR_SERIAL
+)
 EM=subset(
   EM,
   EM$VTR%in%kill==FALSE
@@ -741,7 +761,7 @@ basemap=getNOAA.bathy(
   lon2=-65, 
   lat1=40, 
   lat2=48, 
-  resolution=5
+  resolution=1
   )
 ## Plot the bathymetric map as a background
 plot(
@@ -794,21 +814,18 @@ plot(
   lwd=3,
   add=TRUE
 )
-##########################################################################
-## Cod Discard Records
-## Create an empty data frame to store the records
-CodDiscards=data.frame(
-  VTR=as.character(),
-  
-)
-## For each trip, pull EM data (if available). If not, use the VTR data. 
-for(i in 1:nrow(CA)){
-  trip=CA$VTR[i]
-  em=subset(EM,EM$VTR==trip)
-  coddisc=sum(
-    subset(em,em$SPECIES=="ATLANTIC COD")$DiscardWeight
-  )
-}
-
-
-## CONVERT VESSEL NUMBERS TO VESSELS IN iVTR DATA
+# ##########################################################################
+# ## Cod Discard Records
+# ## Create an empty data frame to store the records
+# CodDiscards=data.frame(
+#   VTR=as.character(),
+#   
+# )
+# ## For each trip, pull EM data (if available). If not, use the VTR data. 
+# for(i in 1:nrow(CA)){
+#   trip=CA$VTR[i]
+#   em=subset(EM,EM$VTR==trip)
+#   coddisc=sum(
+#     subset(em,em$SPECIES=="ATLANTIC COD")$DiscardWeight
+#   )
+# }
