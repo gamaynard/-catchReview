@@ -38,6 +38,7 @@ library(sp)
 library(marmap)
 library(devtools)
 library(dplyr)
+library(sf)
 ## ---------------------------
 
 ## load up our functions into memory
@@ -415,7 +416,8 @@ iDealer=Dealer[,c(
   "Port.Land",
   "Species.Itis",
   "Landed.Weight",
-  "Live.Weight"
+  "Live.Weight",
+  "Date.Sold"
 )]
 ## Permit numbers should be character strings to maintain leading zeros
 iDealer$PERMIT=as.character(
@@ -452,7 +454,12 @@ iDealer$WEIGHT=as.numeric(
     iDealer$Live.Weight
   )
 )
-
+## Dates should be converted to POSIX values
+iDealer$DATE=ymd(
+  as.character(
+    iDealer$Date.Sold
+    )
+  )
 ## Convert permit numbers in the iVTR file to vessel names using the
 ## reference values available in the iDealer file
 iVTR$VESSEL=NA
@@ -600,6 +607,12 @@ zip::unzip(
 AllCA=readOGR(
   dsn="AllCA/Groundfish_Closure_Areas/Groundfish_Closure_Areas.shp"
 )
+## Convert the shapefile from NAD83 (the default projection from NOAA) to
+## WGS84 (the default projection for GEBCO, for plotting over bathymetry)
+AllCA=spTransform(
+  AllCA, 
+  CRS("+init=epsg:4326")
+  )
 ## Break up the shapefile into individual closed areas
 ## In FY2019, the closed area list includes the following:
 ## Cashes Ledge Closure
@@ -622,7 +635,11 @@ for(i in 1:nrow(CA)){
   coordinates(trip)=~LON+LAT
   ## Reproject the trip to the same coordinate system as the closed area 
   ## shapefiles
-  proj4string(trip)=proj4string(CL)
+  proj4string(trip)="+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0"
+  trip=spTransform(
+    trip, 
+    CRS("+init=epsg:4326")
+  )
   ## Check to see if each trip overlaps with the boundaries of Cashes Ledge
   if(is.na(over(trip,CL)$AREANAME)==TRUE){
     CA$CL[i]=FALSE
@@ -779,6 +796,8 @@ for(i in 1:length(VESSEL)){
 ##########################################################################
 ##########################################################################
 ## Code to plot Figure 1 below
+## WARNING: AS OF 2020-11-20, SOME OF THESE TRIPS ARE APPEARING ON LAND AND
+## I'M NOT SURE WHY. FURTHER INVESTIGATION WILL BE REQUIRED TO SORT THEM OUT
 ##########################################################################
 ## Create a vector of blues for plotting a map of trips
 blues=c(
@@ -850,20 +869,111 @@ plot(
 plot(
   AllCA,
   lwd=3,
-  add=TRUE
+  add=TRUE,
+  border='yellow'
 )
-# ##########################################################################
-# ## Cod Discard Records
-# ## Create an empty data frame to store the records
-# CodDiscards=data.frame(
-#   VTR=as.character(),
-#   
-# )
-# ## For each trip, pull EM data (if available). If not, use the VTR data. 
-# for(i in 1:nrow(CA)){
-#   trip=CA$VTR[i]
-#   em=subset(EM,EM$VTR==trip)
-#   coddisc=sum(
-#     subset(em,em$SPECIES=="ATLANTIC COD")$DiscardWeight
-#   )
-# }
+##########################################################################
+## Cod Discard Records
+## Create an empty data frame to store the records
+CodDiscards=data.frame(
+  VTR=as.character(),
+  CD=as.numeric(),
+  SOURCE=as.character()
+)
+## For each trip, pull EM data (if available). If not, use the VTR data.
+for(i in 1:nrow(CA)){
+  trip=CA$VTR[i]
+  em=subset(EM,EM$VTR==trip)
+  if(nrow(em)>0){
+    coddisc=sum(
+      subset(em,em$SPECIES=="ATLANTIC COD")$DiscardWeight,
+      na.rm=TRUE
+    )
+    cd=data.frame(
+      VTR=trip,
+      CD=coddisc,
+      SOURCE="EM"
+    )
+  } else {
+    vtr=subset(iVTR,iVTR$VTR==trip)
+    coddisc=sum(
+      subset(vtr,vtr$SPECIES=="ATLANTIC COD")$DISCARDED,
+      na.rm=TRUE
+    )
+    cd=data.frame(
+      VTR=trip,
+      CD=coddisc,
+      SOURCE="VTR"
+    )
+  }
+  CodDiscards=rbind(CodDiscards,cd)
+}
+## Remove duplicate records
+CodDiscards$dup=duplicated(CodDiscards)
+CodDiscards=subset(
+  CodDiscards,
+  CodDiscards$dup==FALSE
+)
+## Add in closed area info
+CodDiscards$CAII=FALSE
+CodDiscards$CL=FALSE
+CodDiscards$WGOM=FALSE
+CodDiscards$OUT=FALSE
+for(i in 1:nrow(CodDiscards)){
+  x=subset(CA,CA$VTR==CodDiscards$VTR[i])
+  CodDiscards$CAII[i]=sum(x$CAII)>0
+  CodDiscards$CL[i]=sum(x$CL)>0
+  CodDiscards$WGOM[i]=sum(x$WGOM)>0
+  CodDiscards$OUT[i]=sum(x$OUT)>0
+}
+CodDiscards$MIX=(CodDiscards$CAII+CodDiscards$CL+CodDiscards$WGOM+CodDiscards$OUT)>1
+## Add in landings values
+CodDiscards$KALL=0
+CodDiscards$HADDOCK=0
+CodDiscards$COD=0
+for(i in 1:nrow(CodDiscards)){
+  l=subset(
+    iDealer,
+    iDealer$Vtr.Serial.No==CodDiscards$VTR[i]
+  )
+  if(nrow(l)==0){
+    v=subset(
+      iVTR,
+      iVTR$VTR==CodDiscards$VTR[i]
+    )
+    if(nrow(v)==0){
+      v=subset(
+        EM,
+        EM$VTR==CodDiscards$VTR[i]
+      )
+      start=min(v$STARTTIME)
+      end=max(v$ENDTIME)
+    } else {
+      start=min(v$SAILDATE)
+      end=max(v$LANDDATE)
+    }
+    ves=v$VESSEL[1]
+    l=subset(
+      iDealer,
+      iDealer$VESSEL==ves&iDealer$DATE
+    )
+  }
+  CodDiscards$KALL[i]=sum(
+    l$WEIGHT,
+    na.rm=TRUE
+    )
+  CodDiscards$HADDOCK[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="HADDOCK"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$COD[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="ATLANTIC COD"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+}
