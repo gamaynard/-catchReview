@@ -37,6 +37,7 @@ library(zip)
 library(sp)
 library(marmap)
 library(devtools)
+library(dplyr)
 ## ---------------------------
 
 ## load up our functions into memory
@@ -682,25 +683,42 @@ for(i in 1:nrow(CA)){
   }
 }
 ## If linking by VTR number fails, try linking by permit number
-CA$VESSEL=ifelse(
-  is.na(CA$VESSEL),
-  as.character(
-    unique(
-      Dealer$Vessel.Name[which(
-        as.character(
-          Dealer$Vessel.Permit.No
-        )==substr(
-          x=CA$VTR[1],
-          start=1,
-          stop=6
-        )
-      )]
-    )
-  ),
-  as.character(
-    CA$VESSEL
-  )
+## Create a list of permit numbers from the EM data to augment the dealer data
+empn=select(EM,VTR,VESSEL)
+empn$PN=substr(
+  x=EM$VTR,
+  start=1,
+  stop=6
 )
+empn$VTR=NULL
+empn$dup=duplicated(empn)
+empn=subset(
+  empn,
+  empn$dup==FALSE
+  )
+empn$dup=NULL
+for(i in 1:nrow(CA)){
+  if(
+    is.na(CA$VESSEL[i])
+  ){
+    pn=substr(
+      x=CA$VTR[i],
+      start=1,
+      stop=6
+    )
+    if(pn%in%iDealer$Vessel.Permit.No){
+      CA$VESSEL[i]=unique(
+        iDealer[which(
+          iDealer$Vessel.Permit.No==pn
+        ),]$VESSEL
+      )
+    } else {
+      if(pn%in%empn$PN){
+        CA$VESSEL[i]=empn$VESSEL[which(empn$PN==pn)]
+      }
+    }
+  }
+}
 ## Make a list of all unique vessels in the CA data frame
 VESSEL=unique(CA$VESSEL)[order(
   unique(CA$VESSEL)
