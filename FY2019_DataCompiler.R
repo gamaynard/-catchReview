@@ -668,7 +668,7 @@ for(i in 1:nrow(CA)){
 ## Link each VTR in the CA table with a vessel name
 CA$VESSEL=NA
 for(i in 1:nrow(CA)){
-  if(as.character(CA$VTR[i])%in%iVTR$VTR){
+  if(as.character(CA$VTR[i])%in%as.character(iVTR$VTR)){
     CA$VESSEL[i]=as.character(
       unique(
         iVTR$VESSEL[which(
@@ -681,6 +681,26 @@ for(i in 1:nrow(CA)){
     )
   }
 }
+## If linking by VTR number fails, try linking by permit number
+CA$VESSEL=ifelse(
+  is.na(CA$VESSEL),
+  as.character(
+    unique(
+      Dealer$Vessel.Name[which(
+        as.character(
+          Dealer$Vessel.Permit.No
+        )==substr(
+          x=CA$VTR[1],
+          start=1,
+          stop=6
+        )
+      )]
+    )
+  ),
+  as.character(
+    CA$VESSEL
+  )
+)
 ## Make a list of all unique vessels in the CA data frame
 VESSEL=unique(CA$VESSEL)[order(
   unique(CA$VESSEL)
