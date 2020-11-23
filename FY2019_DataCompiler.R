@@ -878,7 +878,7 @@ plot(
 CodDiscards=data.frame(
   VTR=as.character(),
   CD=as.numeric(),
-  SOURCE=as.character()
+  DISCARD_SOURCE=as.character()
 )
 ## For each trip, pull EM data (if available). If not, use the VTR data.
 for(i in 1:nrow(CA)){
@@ -892,7 +892,7 @@ for(i in 1:nrow(CA)){
     cd=data.frame(
       VTR=trip,
       CD=coddisc,
-      SOURCE="EM"
+      DISCARD_SOURCE="EM"
     )
   } else {
     vtr=subset(iVTR,iVTR$VTR==trip)
@@ -903,7 +903,7 @@ for(i in 1:nrow(CA)){
     cd=data.frame(
       VTR=trip,
       CD=coddisc,
-      SOURCE="VTR"
+      DISCARD_SOURCE="VTR"
     )
   }
   CodDiscards=rbind(CodDiscards,cd)
@@ -914,6 +914,7 @@ CodDiscards=subset(
   CodDiscards,
   CodDiscards$dup==FALSE
 )
+CodDiscards$dup=NULL
 ## Add in closed area info
 CodDiscards$CAII=FALSE
 CodDiscards$CL=FALSE
@@ -927,10 +928,19 @@ for(i in 1:nrow(CodDiscards)){
   CodDiscards$OUT[i]=sum(x$OUT)>0
 }
 CodDiscards$MIX=(CodDiscards$CAII+CodDiscards$CL+CodDiscards$WGOM+CodDiscards$OUT)>1
+## Add in Vessel names
+CodDiscards$VESSEL=NA
+for(i in 1:nrow(CodDiscards)){
+  CodDiscards$VESSEL[i]=subset(
+    CA,
+    CA$VTR==CodDiscards$VTR[i]
+  )$VESSEL[1]
+}
 ## Add in landings values
 CodDiscards$KALL=0
 CodDiscards$HADDOCK=0
 CodDiscards$COD=0
+CodDiscards$LANDINGS_SOURCE=NA
 for(i in 1:nrow(CodDiscards)){
   l=subset(
     iDealer,
@@ -946,16 +956,32 @@ for(i in 1:nrow(CodDiscards)){
         EM,
         EM$VTR==CodDiscards$VTR[i]
       )
-      start=min(v$STARTTIME)
-      end=max(v$ENDTIME)
+      start=floor_date(
+        min(v$STARTTIME),
+        unit="day"
+      )
+      end=ceiling_date(
+        max(v$ENDTIME),
+        unit="day"
+      )
     } else {
-      start=min(v$SAILDATE)
-      end=max(v$LANDDATE)
+      start=floor_date(
+        min(v$SAILDATE),
+        unit="day"
+        )
+      end=ceiling_date(
+        max(v$LANDDATE),
+        unit="day"
+      )
     }
     ves=v$VESSEL[1]
     l=subset(
       iDealer,
-      iDealer$VESSEL==ves&iDealer$DATE
+      iDealer$VESSEL==ves&iDealer$DATE%in%seq(
+        from=start,
+        to=end+86400,
+        by="day"
+      )
     )
   }
   CodDiscards$KALL[i]=sum(
@@ -976,4 +1002,60 @@ for(i in 1:nrow(CodDiscards)){
     )$WEIGHT,
     na.rm=TRUE
   )
+  if(nrow(l)>0){
+    CodDiscards$LANDINGS_SOURCE[i]="DEALER"
+  }
 }
+## For records that still have blanks because the dealer data can't be
+## linked or isn't available, use the self-reported VTR data to compile
+## landings
+for(i in 1:nrow(CodDiscards)){
+  if(CodDiscards$KALL[i]==0){
+    x=subset(
+      iVTR,
+      iVTR$VTR==CodDiscards$VTR[i]
+    )
+    if(nrow(x)>0){
+      ## Calculcate KALL
+      CodDiscards$KALL[i]=sum(
+        x$KEPT,
+        na.rm=TRUE
+      )
+      ## Calculate HADDOCK landings
+      CodDiscards$HADDOCK[i]=sum(
+        subset(
+          x,
+          x$SPECIES=="HADDOCK"
+        )$KEPT
+      )
+      ## Calculate COD landings
+      CodDiscards$COD[i]=sum(
+        subset(
+          x,
+          x$SPECIES=="ATLANTIC COD"
+        )$KEPT
+      )
+      ## Label the record
+      CodDiscards$LANDINGS_SOURCE[i]="VTR"
+    }
+  }
+}
+## Analyze only those trips that report cod landings or discards
+CD=subset(
+  CodDiscards,
+  (CodDiscards$CD+CodDiscards$COD)>0
+)
+## Flag trips without landings data
+CD$LANDINGS=ifelse(
+  CD$KALL==0,
+  FALSE,
+  TRUE
+)
+#############################################################################
+## CAVEATS
+## 
+## SOME LANDINGS DATA ARE MISSING FROM THE LINDA MARIE, PROUD MARY, 
+## LADY REBECCA, VIRGINIA MARISE
+##
+## SOME TRIPS ARE PLOTTING ON LAND FOR UNKNOWN REASONS (INCLUDING BOTH 
+## EM-GENERATED GIS DATA AS WELL AS SELF-REPORTED DATA FROM VTRS)
