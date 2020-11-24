@@ -1,33 +1,11 @@
-## ---------------------------
-##
-## Script name: FY2019_DataCompiler.R
-##
-## Purpose of script: Brings together VTR, EM, and Dealer Data for FY2019 for
-##    analytics and reporting
-##
-## Author: George A. Maynard
-##
-## Date Created: 2020-10-19
-##
-## Copyright (c) George Alphonse Maynard, 2020
-## Email: galphonsemaynard@gmail.com
-##
-## ---------------------------
-##
-## Notes:
-##   
-##
-## ---------------------------
-
-## set working directory
-
-## ---------------------------
-
-## Set options
-options(scipen = 6, digits = 4) # eliminate scientific notation
-## ---------------------------
-
-## load up the packages we will need:  (uncomment as required)
+---
+title: "Electronic Monitoring EFP Reporting"
+author: "george@capecodfishermen.org"
+date: "Fishing Year 2019"
+output: word_document
+---
+  
+```{r setup, include=FALSE}
 library(RJSONIO)
 library(XLConnect)
 library(lubridate)
@@ -39,17 +17,17 @@ library(marmap)
 library(devtools)
 library(dplyr)
 library(sf)
-## ---------------------------
-
-## load up our functions into memory
+library(flextable)
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
+options(scipen=999)
+```
+```{r Data Download and Processing, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 ## The marmap library is partly deprecated because of NOAA's website updates
 ## Users in the GitHub community have developed a new function, and the code
 ## below downloads the most recent version from Eric Pante's GitHub repo
 source_url(
   url="https://raw.githubusercontent.com/ericpante/marmap/master/R/getNOAA.bathy.R"
 )
-## ---------------------------
-
 ## The three datasets that make up the basis of this analysis are the FY2019 VTR
 ## data (requested from GARFO), the FY2019 EM data (requested from Teem.Fish),
 ## and the FY2019 Dealer Data (requested from sector managers). The next step
@@ -590,6 +568,8 @@ CA=subset(
 )
 ## Add a column to record whether a trip was audited or not
 CA$EM=NA
+## Add a column to record the cod stock area impacted by the trip
+CA$STOCK=NA
 ## Download groundfish closures from the NOAA website as a .zip archive of 
 ## shapefiles into a temporary file
 dest_file="AllCA.zip"
@@ -737,7 +717,6 @@ for(i in 1:nrow(CA)){
     FALSE
   )
 }
-
 ## Link each VTR in the CA table with a vessel name
 CA$VESSEL=NA
 for(i in 1:nrow(CA)){
@@ -796,9 +775,6 @@ VESSEL=unique(CA$VESSEL)[order(
   unique(CA$VESSEL)
   )]
 VESSEL=subset(VESSEL,is.na(VESSEL)==FALSE)
-##########################################################################
-## Table 1a is CAV
-##########################################################################
 ## Create a table to store trips by closed area and vessel
 CAV=data.frame(
   VESSEL=as.character(),
@@ -825,12 +801,6 @@ for(i in 1:length(VESSEL)){
   )
   CAV=rbind(CAV,y)
 }
-##########################################################################
-
-##########################################################################
-## Table 1b is a new table that shows the number of trips a vessel took vs
-## the number of trips that were audited. 
-##########################################################################
 CAA=data.frame(
   VESSEL=as.character(),
   TRIPS=as.numeric(),
@@ -848,99 +818,6 @@ for(i in 1:length(VESSEL)){
   )
   CAA=rbind(CAA,y)
 }
-##########################################################################
-##########################################################################
-## Code to plot Figure 1 below
-## WARNING: AS OF 2020-11-20, SOME OF THESE TRIPS ARE APPEARING ON LAND AND
-## I'M NOT SURE WHY. FURTHER INVESTIGATION WILL BE REQUIRED TO SORT THEM OUT
-##########################################################################
-## Create a vector of blues for plotting a map of trips
-blues=c(
-  "lightsteelblue4", 
-  "lightsteelblue3", 
-  "lightsteelblue2", 
-  "lightsteelblue1"
-  )
-## Create a vector of grays for plotting a map of trips
-grays=c(
-  gray(0.6), 
-  gray(0.93), 
-  gray(0.99)
-  )
-## Download bathymetric data for plotting trip locations
-basemap=getNOAA.bathy(
-  lon1=-75, 
-  lon2=-65, 
-  lat1=40, 
-  lat2=48, 
-  resolution=1
-  )
-## Plot the bathymetric map as a background
-plot(
-  basemap, 
-  image = TRUE, 
-  land = TRUE, 
-  deep=-100000, 
-  shallow=0, 
-  step=999999, 
-  drawlabels = FALSE, 
-  bpal = list(
-    c(
-      min(basemap,na.rm=TRUE),
-      0, 
-      blues
-      ), 
-    c(
-      0, 
-      max(basemap, na.rm=TRUE), 
-      grays
-      )
-    ), 
-  lwd = 0.1
-  )
-## Plot the cod stock areas
-plot(
-  GB,
-  lwd=2,
-  add=TRUE
-)
-plot(
-  GOM,
-  lwd=2,
-  add=TRUE
-)
-## Add a point for each of the trips (red for unaudited, blue for audited)
-points(
-  x=subset(CA,CA$EM==FALSE)$LON,
-  y=subset(CA,CA$EM==FALSE)$LAT,
-  pch=22,
-  col='black',
-  bg='red'
-  )
-points(
-  x=subset(CA,CA$EM==TRUE)$LON,
-  y=subset(CA,CA$EM==TRUE)$LAT,
-  pch=22,
-  col='black',
-  bg='blue'
-)
-## Add the Closed Area shapes
-plot(
-  AllCA,
-  lwd=1,
-  add=TRUE,
-  dens=25,
-  angle=45,
-  col='yellow'
-)
-plot(
-  AllCA,
-  lwd=3,
-  add=TRUE,
-  border='yellow'
-)
-
-##########################################################################
 ## Cod Discard Records
 ## Create an empty data frame to store the records
 CodDiscards=data.frame(
@@ -1124,8 +1001,6 @@ CodD$LANDINGS=ifelse(
   FALSE,
   TRUE
 )
-table(CodD$LANDINGS_SOURCE)
-table(CodD$DISCARD_SOURCE)
 ## Assign each trip to a closed area group for plotting purposes
 CodD$CA=ifelse(
   CodD$CAII==TRUE,
@@ -1171,10 +1046,379 @@ for(i in 1:nrow(CodD)){
     }
   }
 }
-#############################################################################
-## CAVEATS
-## 
-## SOME LANDINGS DATA ARE MISSING FROM THE KATHRYN LEIGH AND MARION J
-##
-## SOME TRIPS ARE PLOTTING ON LAND FOR UNKNOWN REASONS (INCLUDING BOTH 
-## EM-GENERATED GIS DATA AS WELL AS SELF-REPORTED DATA FROM VTRS)
+```
+
+
+This report covers trips taken between `r ceiling_date(min(iVTR$SAILDATE),unit="day")` and `r floor_date(max(iVTR$LANDDATE),unit="day")`. 
+
+*Table 1a -- Trips taken exclusively in closed areas by vessels participating in the electronic monitoring program. Closed area abbreviations are as follows: Closed Area II (CAII), Cashes Ledge (CL), Western Gulf of Maine (WGOM). Trips in the "Out" column took place outside of closed areas.* 
+  
+```{r echo=FALSE, results='asis'}
+options(digits=0)
+as.data.frame(CAV) %>% regulartable() %>% autofit()
+```
+
+*Table 1b -- Total trips taken and total trips audited through the EM program by each vessel in FY19. The target audit rate this year is 50%*
+  
+```{r echo=FALSE, results='asis'}
+options(digits=0)
+as.data.frame(CAA) %>% regulartable() %>% autofit()
+```
+
+```{r Mapping, include=FALSE}
+## Create a vector of blues for plotting a map of trips
+blues=c(
+  "lightsteelblue4", 
+  "lightsteelblue3", 
+  "lightsteelblue2", 
+  "lightsteelblue1"
+  )
+## Create a vector of grays for plotting a map of trips
+grays=c(
+  gray(0.6), 
+  gray(0.93), 
+  gray(0.99)
+  )
+## Download bathymetric data for plotting trip locations
+basemap=getNOAA.bathy(
+  lon1=-75, 
+  lon2=-65, 
+  lat1=40, 
+  lat2=48, 
+  resolution=1
+  )
+```
+```{r Map Plotting, echo=FALSE, fig.height=3.5}
+## Plot the bathymetric map as a background
+plot(
+  basemap, 
+  image = TRUE, 
+  land = TRUE, 
+  deep=-100000, 
+  shallow=0, 
+  step=999999, 
+  drawlabels = FALSE, 
+  bpal = list(
+    c(
+      min(basemap,na.rm=TRUE),
+      0, 
+      blues
+      ), 
+    c(
+      0, 
+      max(basemap, na.rm=TRUE), 
+      grays
+      )
+    ), 
+  lwd = 0.1
+  )
+## Add a point for each of the trips (red for unaudited, blue for audited)
+points(
+  x=subset(CA,CA$EM==FALSE)$LON,
+  y=subset(CA,CA$EM==FALSE)$LAT,
+  pch=22,
+  col='black',
+  bg='red'
+  )
+points(
+  x=subset(CA,CA$EM==TRUE)$LON,
+  y=subset(CA,CA$EM==TRUE)$LAT,
+  pch=22,
+  col='black',
+  bg='blue'
+)
+## Add the Closed Area shapes
+plot(
+  AllCA,
+  lwd=1,
+  add=TRUE,
+  dens=25,
+  angle=45,
+  col='yellow'
+)
+plot(
+  AllCA,
+  lwd=3,
+  add=TRUE,
+  border='yellow'
+)
+```
+
+*Figure 1 -- Approximate location of fishing efforts under the EFP. Blue trips were audited and red trips were not. Closed areas are represented by yellow hatched polygons. NOTE: Some trips are plotting on shore, and it is unclear why, as both fishermen reported trips and GPS-recorded trips show up on land.*  
+  
+**COD DISCARDS**    
+  
+Overall, participating vessels have discarded `r sum(CodD$CD)` pounds of cod including `r sum(subset(CodD,CodD$CL==TRUE)$CD)` pounds in the Cashes Ledge closure, `r sum(subset(CodD,CodD$WGOM==TRUE)$CD)` pounds in the Western Gulf of Maine closure, `r sum(subset(CodD,CodD$CAII==TRUE)$CD)` pounds in Closed Area II, and `r sum(CodD$CD)-sum(c(subset(CodD,CodD$CL==TRUE)$CD,subset(CodD,CodD$WGOM==TRUE)$CD,subset(CodD,CodD$CAII==TRUE)$CD))` pounds outside of the closed areas.
+
+```{r Discard Plotting, echo=FALSE, fig.height=3.5}
+options(digits=2)
+barplot(
+  c(
+    sum(
+      subset(CodD,CodD$CL==TRUE)$CD
+      ),
+    sum(
+      subset(CodD,CodD$WGOM==TRUE)$CD
+      ),
+    sum(
+      subset(CodD,CodD$CAII==TRUE)$CD
+      ),
+    sum(
+      CodD$CD
+      )-sum(
+        c(subset(CodD,CodD$CL==TRUE)$CD,
+          subset(CodD,CodD$WGOM==TRUE)$CD,
+          subset(CodD,CodD$CAII==TRUE)$CD)
+      )
+    ),
+  names=c(
+    "CL",
+    "WGOM",
+    "CAII",
+    "OUT"
+  ),
+  width=c(
+    1,
+    1,
+    1,
+    1
+  ),
+  ylab="Total Discards (lbs)",
+  col="lightgray"
+)
+```
+
+*Figure 2 -- Barplot of total cod discards (lbs) by closed area from electronic monitoring project participants between `r ceiling_date(min(iVTR$SAILDATE),unit="day")` and `r floor_date(max(iVTR$LANDDATE),unit="day")`. Closed area abbreviations are as follows: Cashes Ledge (CL), Western Gulf of Maine (WGOM), and Closed Area II (CAII). Trips in the "OUT" column took place outside of closed areas. For the purposes of this analysis, if a trip took place even partially within a closed area it was counted towards that closed area's total.* 
+
+Average per trip cod discards were `r round(sum(subset(CodD,CodD$CL==TRUE)$CD)/nrow(subset(CodD,CodD$CL==TRUE)),1)` pounds in the Cashes Ledge closure, `r round(sum(subset(CodD,CodD$WGOM==TRUE)$CD)/nrow(subset(CodD,CodD$WGOM==TRUE)),1)` pounds in the Western Gulf of Maine closure, `r round(sum(subset(CodD,CodD$CAII==TRUE)$CD)/nrow(subset(CodD,CodD$CAII==TRUE)),1)` pounds in Closed Area II, and `r round(sum(subset(CodD,CodD$OUT==TRUE)$CD)/nrow(subset(CodD,CodD$OUT==TRUE)),0)` pounds outside of the closed areas.
+
+```{r Discard Plotting 2, echo=FALSE, fig.height=3.5}
+boxplot(
+  (CodD$CD/CodD$KALL)~CodD$CA,
+  names=c(
+    "CAII",
+    "CL",
+    "WGOM",
+    "OUT"
+  ),
+  ylab="Cod Discards / KAll",
+  col="lightgray",
+  ylim=c(
+    0,
+    0.15
+  ),
+  xlab=""
+)
+```
+
+*Figure 3 -- Box plot of per trip cod discards (lbs) divided by total landings for all species (KAll, lbs) inside and outside of closed areas by electronic monitoring program participants during FY2019. Closed area abbreviations are as follows: Closed Area II (CAII), Cashes Ledge (CL), Western Gulf of Maine (WGOM). Trips in the "OUT" column took place entirely outside of closed areas. For the purposes of this analysis, if a trip took place even partially within a closed area it was counted towards that closed area's total. Additionally, all trips that did not report groundfish landings (e.g., monkfish trips) were discarded from this analysis. A discard mortality rate of 1.0 was assumed across all gear types.*
+
+**COD MORTALITY**
+
+Cod mortality includes discards and landings. Discard mortality was assumed at 100% for this analysis.
+
+```{r Figure 4, echo=FALSE, fig.height=3.5}
+boxplot(
+  ((CodD$CD+CodD$COD)/CodD$KALL)~CodD$CA,
+  names=c(
+    "CAII",
+    "CL",
+    "WGOM",
+    "OUT"
+  ),
+  ylab="Cod Mortality / KAll",
+  col="lightgray",
+  xlab=""
+)
+```
+
+*Figure 4 -- Box plot of per trip cod mortality (lbs of discards and landings) divided by total landings for all species (KAll, lbs) inside and outside of closed areas by electronic monitoring program participants during FY2019. Closed area abbreviations are as follows: Closed Area II (CAII), Cashes Ledge (CL), Western Gulf of Maine (WGOM). Trips in the "OUT" column took place entirely outside of closed areas. For the purposes of this analysis, if a trip took place even partially within a closed area it was counted towards that closed area's total. Additionally, all trips that did not report groundfish landings (e.g., monkfish trips) were discarded from this analysis. A discard mortality rate of 1.0 was assumed across all gear types.*
+  
+**COD LANDINGS**
+
+Overall, participating vessels have landed `r sum(CodD$COD)` pounds of cod including `r sum(subset(CodD,CodD$CA=="CL")$COD)` pounds in the Cashes Ledge closure, `r sum(subset(CodD,CodD$CA=="WGOM")$COD)` pounds in the Western Gulf of Maine closure, `r sum(subset(CodD,CodD$CA=="CAII")$COD)` pounds in Closed Area II, and `r sum(subset(CodD,CodD$CA=="OUT")$COD)` pounds outside of the closed areas.
+
+```{r Landing Plotting, echo=FALSE, fig.height=3.5}
+barplot(
+  c(
+    sum(subset(CodD,CodD$CL==TRUE)$COD),
+    sum(subset(CodD,CodD$WGOM==TRUE)$COD),
+    sum(subset(CodD,CodD$CAII==TRUE)$COD),
+    sum(subset(CodD,CodD$OUT==TRUE)$COD)
+  ),
+  names=c(
+    "CL",
+    "WGOM",
+    "CAII",
+    "Out"
+    ),
+  width=c(
+    1,
+    1,
+    1,
+    1),
+  ylab="Landed (Live lbs)",
+  col="lightgray"
+  )
+```
+
+*Figure 6 -- Barplot of total cod landings (lbs) by closed area from electronic monitoring project participants between`r ceiling_date(min(iVTR$SAILDATE),unit="day")` and `r floor_date(max(iVTR$LANDDATE),unit="day")`. Closed area abbreviations are as follows: Closed Area II (CAII), Cashes Ledge (CL), Western Gulf of Maine (WGOM). Trips in the "OUT" column took place entirely outside of closed areas. For the purposes of this analysis, if a trip took place even partially within a closed area it was counted towards that closed area's total.* 
+  
+**SPECIES SPECIFIC COMPARISONS**
+  
+_**Longlined Haddock**_
+
+Longline vessels participating in this project target haddock, fishing in open areas and in the Western Gulf of Maine closure. Assuming a 100% discard mortality rate, inside the Western Gulf of Maine closure, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed (as discards or landings) (median: `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)`). 
+
+```{r HadRat Plotting1, echo=FALSE, fig.height=3.5}
+z=subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT
+z=ifelse(
+  z>1000,
+  1000,
+  z
+)
+hist(
+  z,
+  xlab="Haddock Landed : Cod Mortality Ratio (DM=100%)",
+  main='',
+  ylab="Trips",
+  xlim=c(
+    0,
+    1000
+  ),
+  col='darkgray',
+  breaks=seq(0,1000,10)
+  )
+abline(
+  v=mean(
+    z
+  ),
+  lty=1
+)
+abline(
+  v=median(
+    z
+  ),
+  lty=2
+)
+```
+
+*Figure 7a -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in the Western Gulf of Maine closed area. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
+  
+Assuming a 100% discard mortality rate, in the Cashes Ledge closure area, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed(as discards or landings)  (median: `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)`). 
+
+```{r HadRat Plotting2, echo=FALSE, fig.height=3.5}
+z=subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT
+z=ifelse(
+  z>1000,
+  1000,
+  z
+)
+hist(
+  z,
+  xlab="Haddock Landed : Cod Mortality Ratio (DM=100%)",
+  main='',
+  ylab="Trips",
+  xlim=c(
+    0,
+    1000
+  ),
+  col='darkgray',
+  breaks=seq(0,1000,10)
+  )
+abline(
+  v=mean(
+    z
+  ),
+  lty=1
+)
+abline(
+  v=median(
+    z
+  ),
+  lty=2
+)
+```
+
+*Figure 7b -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in the Cashes Ledge closed area. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
+
+Assuming a 100% discard mortality rate, in the open areas, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed(as discards or landings)  (median: `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)`). 
+
+```{r HadRat Plotting3, echo=FALSE, fig.height=3.5}
+z=subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT
+z=ifelse(
+  z>1000,
+  1000,
+  z
+)
+hist(
+  z,
+  xlab="Haddock Landed : Cod Mortality Ratio (DM=100%)",
+  main='',
+  ylab="Trips",
+  xlim=c(
+    0,
+    1000
+  ),
+  col='darkgray',
+  breaks=seq(0,1000,10)
+  )
+abline(
+  v=mean(
+    z
+  ),
+  lty=1
+)
+abline(
+  v=median(
+    z
+  ),
+  lty=2
+)
+```
+
+*Figure 7b -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in open areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
+  
+  **2019 FISHING YEAR SUMMARY**
+  
+*Table 2 -- Cod landings and discards (lbs) by stock. Cod quota is managed in two stocks: Georges Bank (GB) and the Gulf of Maine (GOM)*
+
+```{r CodStocks, echo=FALSE, results='asis'}
+STOCK=c("GB","GOM")
+DISCARDS=c(
+  sum(
+    subset(
+      CodD,
+      CodD$STOCK=="GB"
+    )$CD
+  ),
+  sum(
+    subset(
+      CodD,
+      CodD$STOCK=="GOM"
+    )$CD
+  )
+)
+LANDINGS=c(
+  sum(
+    subset(
+      CodD,
+      CodD$STOCK=="GB"
+    )$COD
+  ),
+  sum(
+    subset(
+      CodD,
+      CodD$STOCK=="GOM"
+    )$COD
+  )
+)
+Cod=data.frame(
+  STOCK,
+  DISCARDS,
+  LANDINGS
+)
+options(digits=0)
+Cod %>% regulartable() %>% autofit() %>% set_formatter_type(Cod,
+fmt_double = "%.00f")
+```
