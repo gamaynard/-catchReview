@@ -634,11 +634,24 @@ AllStocks=spTransform(
 ## Break up the shapefile into individual stock areas and select out cod 
 ## stock areas
 ## In FY2019, the cod stock area list includes the following:
-## Gulf of Maine
+## Gulf of Maine Cod
 GOM=AllStocks[AllStocks$AREANAME=="GOM Cod Stock Area",]
-## Georges Bank
+## Georges Bank Cod
 GB=AllStocks[AllStocks$AREANAME=="GB Cod Stock Area",]
-
+## Separate out other stock areas as well
+## Cape Cod / Gulf of Maine Yellowtail Flounder
+CCGOM_YT=AllStocks[AllStocks$AREANAME=="CC/GOM Yellowtail Flounder Stock Area (BDAS)"]
+## Southern New England / Mid Atlantic Yellowtail Flounder
+SNEMA_YT=AllStocks[AllStocks$AREANAME=="SNE/MA Yellowtail Flounder Stock Area (BDAS)"]
+## Southern New England / Mid Atlantic Winter Flounder
+SNEMA_WF=AllStocks[AllStocks$AREANAME=="SNE/MA Winter Flounder Stock Area"]
+## Georges Bank Yellowtail Flounder
+GB_YT=AllStocks[AllStocks$AREANAME=="GB Yellowtail Flounder Stock Area"]
+## Georges Bank Winter Flounder
+GB_WF=AllStocks[AllStocks$AREANAME=="GB Winter Flounder Stock Area"]
+## NOTE: Pollock, White Hake, Witch Flounder, and American Plaice are all
+## single stocks
+## NOTE: Haddock are managed in the same stock areas as Cod (GOM and GB)
 ## Remove the temporary files from the directory
 unlink("AllStocks.zip")
 unlink(
@@ -1054,6 +1067,7 @@ This report covers trips taken between `r ceiling_date(min(iVTR$SAILDATE),unit="
 *Table 1a -- Trips taken exclusively in closed areas by vessels participating in the electronic monitoring program. Closed area abbreviations are as follows: Closed Area II (CAII), Cashes Ledge (CL), Western Gulf of Maine (WGOM). Trips in the "Out" column took place outside of closed areas.* 
   
 ```{r echo=FALSE, results='asis'}
+CAV$
 options(digits=0)
 as.data.frame(CAV) %>% regulartable() %>% autofit()
 ```
@@ -1377,7 +1391,7 @@ abline(
 )
 ```
 
-*Figure 7b -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in open areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
+*Figure 7c -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in open areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
   
   **2019 FISHING YEAR SUMMARY**
   
