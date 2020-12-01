@@ -25,9 +25,11 @@ options(scipen=999)
 ## The marmap library is partly deprecated because of NOAA's website updates
 ## Users in the GitHub community have developed a new function, and the code
 ## below downloads the most recent version from Eric Pante's GitHub repo
-source_url(
-  url="https://raw.githubusercontent.com/ericpante/marmap/master/R/getNOAA.bathy.R"
-)
+# source_url(
+#   url="https://raw.githubusercontent.com/ericpante/marmap/master/R/getNOAA.bathy.R"
+# )
+## EDIT: THIS LINK NO LONGER WORKS AS OF 2020-12-01
+##
 ## The three datasets that make up the basis of this analysis are the FY2019 VTR
 ## data (requested from GARFO), the FY2019 EM data (requested from Teem.Fish),
 ## and the FY2019 Dealer Data (requested from sector managers). The next step
@@ -640,15 +642,15 @@ GOM=AllStocks[AllStocks$AREANAME=="GOM Cod Stock Area",]
 GB=AllStocks[AllStocks$AREANAME=="GB Cod Stock Area",]
 ## Separate out other stock areas as well
 ## Cape Cod / Gulf of Maine Yellowtail Flounder
-CCGOM_YT=AllStocks[AllStocks$AREANAME=="CC/GOM Yellowtail Flounder Stock Area (BDAS)"]
+CCGOM_YT=AllStocks[AllStocks$AREANAME=="CC/GOM Yellowtail Flounder Stock Area (BDAS)",]
 ## Southern New England / Mid Atlantic Yellowtail Flounder
-SNEMA_YT=AllStocks[AllStocks$AREANAME=="SNE/MA Yellowtail Flounder Stock Area (BDAS)"]
+SNEMA_YT=AllStocks[AllStocks$AREANAME=="SNE/MA Yellowtail Flounder Stock Area (BDAS)",]
 ## Southern New England / Mid Atlantic Winter Flounder
-SNEMA_WF=AllStocks[AllStocks$AREANAME=="SNE/MA Winter Flounder Stock Area"]
+SNEMA_WF=AllStocks[AllStocks$AREANAME=="SNE/MA Winter Flounder Stock Area",]
 ## Georges Bank Yellowtail Flounder
-GB_YT=AllStocks[AllStocks$AREANAME=="GB Yellowtail Flounder Stock Area"]
+GB_YT=AllStocks[AllStocks$AREANAME=="GB Yellowtail Flounder Stock Area",]
 ## Georges Bank Winter Flounder
-GB_WF=AllStocks[AllStocks$AREANAME=="GB Winter Flounder Stock Area"]
+GB_WF=AllStocks[AllStocks$AREANAME=="GB Winter Flounder Stock Area",]
 ## NOTE: Pollock, White Hake, Witch Flounder, and American Plaice are all
 ## single stocks
 ## NOTE: Haddock are managed in the same stock areas as Cod (GOM and GB)
@@ -836,8 +838,16 @@ for(i in 1:length(VESSEL)){
 ## Create an empty data frame to store the records
 CodDiscards=data.frame(
   VTR=as.character(),
+  DISCARD_SOURCE=as.character(),
+  d_HADDOCK=as.numeric(),
   CD=as.numeric(),
-  DISCARD_SOURCE=as.character()
+  d_WINFLO=as.numeric(),
+  d_YTFLO=as.numeric(),
+  d_WHAKE=as.numeric(),
+  d_WITFLO=as.numeric(),
+  d_PLAICE=as.numeric(),
+  d_REDFISH=as.numeric(),
+  d_POLLOCK=as.numeric()
 )
 ## For each trip, pull EM data (if available). If not, use the VTR data.
 for(i in 1:nrow(CA)){
@@ -848,10 +858,50 @@ for(i in 1:nrow(CA)){
       subset(em,em$SPECIES=="ATLANTIC COD")$DiscardWeight,
       na.rm=TRUE
     )
+    dhad=sum(
+      subset(em,em$SPECIES=="HADDOCK")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dwin=sum(
+      subset(em,em$SPECIES=="WINTER FLOUNDER")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dyt=sum(
+      subset(em,em$SPECIES=="YELLOWTAIL FLOUNDER")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dwha=sum(
+      subset(em,em$SPECIES=="WHITE HAKE")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dwit=sum(
+      subset(em,em$SPECIES=="WITCH FLOUNDER")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dpla=sum(
+      subset(em,em$SPECIES=="AMERICAN PLAICE")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dred=sum(
+      subset(em,em$SPECIES=="REDFISH")$DiscardWeight,
+      na.rm=TRUE
+    )
+    dpol=sum(
+      subset(em,em$SPECIES=="POLLOCK")$DiscardWeight,
+      na.rm=TRUE
+    )
     cd=data.frame(
       VTR=trip,
+      DISCARD_SOURCE="EM",
+      d_HADDOCK=dhad,
       CD=coddisc,
-      DISCARD_SOURCE="EM"
+      d_WINFLO=dwin,
+      d_YTFLO=dyt,
+      d_WHAKE=dwha,
+      d_WITFLO=dwit,
+      d_PLAICE=dpla,
+      d_REDFISH=dred,
+      d_POLLOCK=dpol
     )
   } else {
     vtr=subset(iVTR,iVTR$VTR==trip)
@@ -859,10 +909,50 @@ for(i in 1:nrow(CA)){
       subset(vtr,vtr$SPECIES=="ATLANTIC COD")$DISCARDED,
       na.rm=TRUE
     )
+    dhad=sum(
+      subset(vtr,vtr$SPECIES=="HADDOCK")$DISCARDED,
+      na.rm=TRUE
+    )
+    dwin=sum(
+      subset(vtr,vtr$SPECIES=="WINTER FLOUNDER")$DISCARDED,
+      na.rm=TRUE
+    )
+    dyt=sum(
+      subset(vtr,vtr$SPECIES=="YELLOWTAIL FLOUNDER")$DISCARDED,
+      na.rm=TRUE
+    )
+    dwha=sum(
+      subset(vtr,vtr$SPECIES=="WHITE HAKE")$DISCARDED,
+      na.rm=TRUE
+    )
+    dwit=sum(
+      subset(vtr,vtr$SPECIES=="WITCH FLOUNDER")$DISCARDED,
+      na.rm=TRUE
+    )
+    dpla=sum(
+      subset(vtr,vtr$SPECIES=="AMERICAN PLAICE")$DISCARDED,
+      na.rm=TRUE
+    )
+    dred=sum(
+      subset(vtr,vtr$SPECIES=="REDFISH")$DISCARDED,
+      na.rm=TRUE
+    )
+    dpol=sum(
+      subset(vtr,vtr$SPECIES=="POLLOCK")$DISCARDED,
+      na.rm=TRUE
+    )
     cd=data.frame(
       VTR=trip,
+      DISCARD_SOURCE="VTR",
+      d_HADDOCK=dhad,
       CD=coddisc,
-      DISCARD_SOURCE="VTR"
+      d_WINFLO=dwin,
+      d_YTFLO=dyt,
+      d_WHAKE=dwha,
+      d_WITFLO=dwit,
+      d_PLAICE=dpla,
+      d_REDFISH=dred,
+      d_POLLOCK=dpol
     )
   }
   CodDiscards=rbind(CodDiscards,cd)
@@ -902,9 +992,15 @@ for(i in 1:nrow(CodDiscards)){
 }
 ## Add in landings values
 CodDiscards$KALL=0
-CodDiscards$HADDOCK=0
-CodDiscards$COD=0
-CodDiscards$POLLOCK=0
+CodDiscards$l_HADDOCK=0
+CodDiscards$l_COD=0
+CodDiscards$l_WINFLO=0
+CodDiscards$l_YTFLO=0
+CodDiscards$l_WHAKE=0
+CodDiscards$l_WITFLO=0
+CodDiscards$l_PLAICE=0
+CodDiscards$l_REDFISH=0
+CodDiscards$l_POLLOCK=0
 CodDiscards$LANDINGS_SOURCE=NA
 for(i in 1:nrow(CodDiscards)){
   l=subset(
@@ -953,24 +1049,66 @@ for(i in 1:nrow(CodDiscards)){
     l$WEIGHT,
     na.rm=TRUE
     )
-  CodDiscards$HADDOCK[i]=sum(
+  CodDiscards$l_HADDOCK[i]=sum(
     subset(
       l,
       l$SPECIES=="HADDOCK"
     )$WEIGHT,
     na.rm=TRUE
   )
-  CodDiscards$POLLOCK[i]=sum(
+  CodDiscards$l_POLLOCK[i]=sum(
     subset(
       l,
       l$SPECIES=="POLLOCK"
     )$WEIGHT,
     na.rm=TRUE
   )
-  CodDiscards$COD[i]=sum(
+  CodDiscards$l_COD[i]=sum(
     subset(
       l,
       l$SPECIES=="ATLANTIC COD"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$l_WINFLO[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="WINTER FLOUNDER"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$l_YTFLO[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="YELLOWTAIL FLOUNDER"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$l_WHAKE[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="WHITE HAKE"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$l_WITFLO[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="WITCH FLOUNDER"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$l_PLAICE[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="AMERICAN PLAICE"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
+  CodDiscards$l_REDFISH[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="REDFISH"
     )$WEIGHT,
     na.rm=TRUE
   )
@@ -993,26 +1131,68 @@ for(i in 1:nrow(CodDiscards)){
         x$KEPT,
         na.rm=TRUE
       )
-      ## Calculate HADDOCK landings
-      CodDiscards$HADDOCK[i]=sum(
+      CodDiscards$l_HADDOCK[i]=sum(
         subset(
-          x,
-          x$SPECIES=="HADDOCK"
-        )$KEPT
+          l,
+          l$SPECIES=="HADDOCK"
+        )$KEPT,
+        na.rm=TRUE
       )
-      ## Calculate POLLOCK landings
-      CodDiscards$POLLOCK[i]=sum(
+      CodDiscards$l_POLLOCK[i]=sum(
         subset(
-          x,
-          x$SPECIES=="POLLOCK"
-        )$KEPT
+          l,
+          l$SPECIES=="POLLOCK"
+        )$KEPT,
+        na.rm=TRUE
       )
-      ## Calculate COD landings
-      CodDiscards$COD[i]=sum(
+      CodDiscards$l_COD[i]=sum(
         subset(
-          x,
-          x$SPECIES=="ATLANTIC COD"
-        )$KEPT
+          l,
+          l$SPECIES=="ATLANTIC COD"
+        )$KEPT,
+        na.rm=TRUE
+      )
+      CodDiscards$l_WINFLO[i]=sum(
+        subset(
+          l,
+          l$SPECIES=="WINTER FLOUNDER"
+        )$KEPT,
+        na.rm=TRUE
+      )
+      CodDiscards$l_YTFLO[i]=sum(
+        subset(
+          l,
+          l$SPECIES=="YELLOWTAIL FLOUNDER"
+        )$KEPT,
+        na.rm=TRUE
+      )
+      CodDiscards$l_WHAKE[i]=sum(
+        subset(
+          l,
+          l$SPECIES=="WHITE HAKE"
+        )$KEPT,
+        na.rm=TRUE
+      )
+      CodDiscards$l_WITFLO[i]=sum(
+        subset(
+          l,
+          l$SPECIES=="WITCH FLOUNDER"
+        )$KEPT,
+        na.rm=TRUE
+      )
+      CodDiscards$l_PLAICE[i]=sum(
+        subset(
+          l,
+          l$SPECIES=="AMERICAN PLAICE"
+        )$KEPT,
+        na.rm=TRUE
+      )
+      CodDiscards$l_REDFISH[i]=sum(
+        subset(
+          l,
+          l$SPECIES=="REDFISH"
+        )$KEPT,
+        na.rm=TRUE
       )
       ## Label the record
       CodDiscards$LANDINGS_SOURCE[i]="VTR"
@@ -1022,7 +1202,7 @@ for(i in 1:nrow(CodDiscards)){
 ## Analyze only those trips that report cod landings or discards
 CodD=subset(
   CodDiscards,
-  (CodDiscards$CD+CodDiscards$COD)>0
+  (CodDiscards$CD+CodDiscards$l_COD)>0
 )
 ## Flag trips without landings data
 CodD$LANDINGS=ifelse(
@@ -1068,9 +1248,9 @@ for(i in 1:nrow(CodD)){
   if(is.na(CodD$GEAR[i])==FALSE){
     if(CodD$GEAR[i]=="LONGLINE"){
       CodD$HADRAT[i]=ifelse(
-        (CodD$CD[i]+CodD$COD[i])==0,
-        CodD$HADDOCK[i],
-        CodD$HADDOCK[i]/(CodD$CD[i]+CodD$COD[i])
+        (CodD$CD[i]+CodD$l_COD[i])==0,
+        CodD$l_HADDOCK[i],
+        CodD$l_HADDOCK[i]/(CodD$CD[i]+CodD$l_COD[i])
       )
     }
   }
@@ -1081,11 +1261,66 @@ for(i in 1:nrow(CodD)){
   if(is.na(CodD$GEAR[i])==FALSE){
     if(CodD$GEAR[i]=="JIG"){
       CodD$POLRAT[i]=ifelse(
-        (CodD$CD[i]+CodD$COD[i])==0,
-        CodD$POLLOCK[i],
-        CodD$POLLOCK[i]/(CodD$CD[i]+CodD$COD[i])
+        (CodD$CD[i]+CodD$l_COD[i])==0,
+        CodD$l_POLLOCK[i],
+        CodD$l_POLLOCK[i]/(CodD$CD[i]+CodD$l_COD[i])
       )
     }
+  }
+}
+## Add stock areas for all trips
+CodDiscards$s_HADDOCK=NA
+CodDiscards$s_WINFLO=NA
+CodDiscards$s_YTFLO=NA
+for(i in 1:nrow(CodDiscards)){
+  vtr=CodDiscards$VTR[i]
+  trip=subset(
+    CA,
+    CA$VTR==vtr
+    )
+  coordinates(trip)=~LON+LAT
+  proj4string(trip)="+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0"
+  trip=spTransform(
+    trip, 
+    CRS("+init=epsg:4326")
+  )
+  ## For each species, check to see if they were discarded or landed on a given
+  ## trip. If so, assign them to a stock area
+  if((CodDiscards$d_HADDOCK[i]+CodDiscards$l_HADDOCK[i])>0){
+    CodDiscards$s_HADDOCK[i]=ifelse(
+      is.na(over(trip,GOM)$AREANAME[1])==FALSE,
+      "GOM",
+      ifelse(is.na(over(trip,GB)$AREANAME[1]),
+        "GB",
+        NA
+      )
+    )
+  }
+  if((CodDiscards$d_WINFLO[i]+CodDiscards$l_WINFLO[i])>0){
+    CodDiscards$s_WINFLO[i]=ifelse(
+      is.na(over(trip,GB_WF)$AREANAME[1])==FALSE,
+      "GB",
+      ifelse(
+        is.na(over(trip,SNEMA_WF)$AREANAME[1])==FALSE,
+        "SNEMA",
+        NA
+      )
+    )
+  }
+  if((CodDiscards$d_YTFLO[i]+CodDiscards$l_YTFLO[i])>0){
+    CodDiscards$s_YTFLO[i]=ifelse(
+      is.na(over(trip,GB_YT)$AREANAME[1])==FALSE,
+      "GB",
+      ifelse(
+        is.na(over(trip,SNEMA_YT)$AREANAME[1])==FALSE,
+        "SNEMA",
+        ifelse(
+          is.na(over(trip,CCGOM_YT)$AREANAME[1])==FALSE,
+          "CCGOM",
+          NA
+        )
+      )
+    )
   }
 }
 ```
@@ -1117,53 +1352,62 @@ CAA2=rbind(CAA,nr)
 as.data.frame(CAA2) %>% regulartable() %>% autofit()
 ```
 
-```{r Mapping, include=FALSE}
-## Create a vector of blues for plotting a map of trips
-blues=c(
-  "lightsteelblue4", 
-  "lightsteelblue3", 
-  "lightsteelblue2", 
-  "lightsteelblue1"
-  )
-## Create a vector of grays for plotting a map of trips
-grays=c(
-  gray(0.6), 
-  gray(0.93), 
-  gray(0.99)
-  )
-## Download bathymetric data for plotting trip locations
-basemap=getNOAA.bathy(
-  lon1=-75, 
-  lon2=-65, 
-  lat1=39.5, 
-  lat2=45, 
-  resolution=1
-  )
-```
 ```{r Map Plotting, echo=FALSE, fig.height=8.5}
-## Plot the bathymetric map as a background
+# ## Create a vector of blues for plotting a map of trips
+# blues=c(
+#   "lightsteelblue4", 
+#   "lightsteelblue3", 
+#   "lightsteelblue2", 
+#   "lightsteelblue1"
+#   )
+# ## Create a vector of grays for plotting a map of trips
+# grays=c(
+#   gray(0.6), 
+#   gray(0.93), 
+#   gray(0.99)
+#   )
+# ## Download bathymetric data for plotting trip locations
+# basemap=getNOAA.bathy(
+#   lon1=-75, 
+#   lon2=-65, 
+#   lat1=39.5, 
+#   lat2=45, 
+#   resolution=10
+#   )
+# 
+# ## Plot the bathymetric map as a background
+# plot(
+#   basemap, 
+#   image = TRUE, 
+#   land = TRUE, 
+#   deep=-100000, 
+#   shallow=0, 
+#   step=999999, 
+#   drawlabels = FALSE, 
+#   bpal = list(
+#     c(
+#       min(basemap,na.rm=TRUE),
+#       0, 
+#       blues
+#       ), 
+#     c(
+#       0, 
+#       max(basemap, na.rm=TRUE), 
+#       grays
+#       )
+#     ), 
+#   lwd = 0.1
+#   )
+## Plot a shapefile of North America
+NAmerica=readOGR(
+  dsn="us_medium_shoreline/us_medium_shoreline.shp"
+)
 plot(
-  basemap, 
-  image = TRUE, 
-  land = TRUE, 
-  deep=-100000, 
-  shallow=0, 
-  step=999999, 
-  drawlabels = FALSE, 
-  bpal = list(
-    c(
-      min(basemap,na.rm=TRUE),
-      0, 
-      blues
-      ), 
-    c(
-      0, 
-      max(basemap, na.rm=TRUE), 
-      grays
-      )
-    ), 
-  lwd = 0.1
-  )
+  NAmerica,
+  col='black',
+  xlim=c(-75,-65),
+  ylim=c(39.5,45)
+)
 ## Add a point for each of the trips (red for unaudited, blue for audited)
 points(
   x=subset(CA,CA$EM==FALSE)$LON,
@@ -1271,7 +1515,7 @@ Cod mortality includes discards and landings. Discard mortality was assumed at 1
 
 ```{r Figure 4, echo=FALSE, fig.height=3.5}
 boxplot(
-  ((CodD$CD+CodD$COD)/CodD$KALL)~CodD$CA,
+  ((CodD$CD+CodD$l_COD)/CodD$KALL)~CodD$CA,
   names=c(
     "CAII",
     "CL",
@@ -1288,15 +1532,15 @@ boxplot(
   
 **COD LANDINGS**
 
-Overall, participating vessels have landed `r sum(CodD$COD)` pounds of cod including `r sum(subset(CodD,CodD$CA=="CL")$COD)` pounds in the Cashes Ledge closure, `r sum(subset(CodD,CodD$CA=="WGOM")$COD)` pounds in the Western Gulf of Maine closure, `r sum(subset(CodD,CodD$CA=="CAII")$COD)` pounds in Closed Area II, and `r sum(subset(CodD,CodD$CA=="OUT")$COD)` pounds outside of the closed areas.
+Overall, participating vessels have landed `r sum(CodD$l_COD)` pounds of cod including `r sum(subset(CodD,CodD$CA=="CL")$l_COD)` pounds in the Cashes Ledge closure, `r sum(subset(CodD,CodD$CA=="WGOM")$l_COD)` pounds in the Western Gulf of Maine closure, `r sum(subset(CodD,CodD$CA=="CAII")$l_COD)` pounds in Closed Area II, and `r sum(subset(CodD,CodD$CA=="OUT")$l_COD)` pounds outside of the closed areas.
 
 ```{r Landing Plotting, echo=FALSE, fig.height=3.5}
 barplot(
   c(
-    sum(subset(CodD,CodD$CL==TRUE)$COD),
-    sum(subset(CodD,CodD$WGOM==TRUE)$COD),
-    sum(subset(CodD,CodD$CAII==TRUE)$COD),
-    sum(subset(CodD,CodD$OUT==TRUE)$COD)
+    sum(subset(CodD,CodD$CL==TRUE)$l_COD),
+    sum(subset(CodD,CodD$WGOM==TRUE)$l_COD),
+    sum(subset(CodD,CodD$CAII==TRUE)$l_COD),
+    sum(subset(CodD,CodD$OUT==TRUE)$l_COD)
   ),
   names=c(
     "CL",
@@ -1451,7 +1695,7 @@ abline(
 
 Assuming a 100% discard mortality rate, inside the Cashes Ledge closure, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` ± `r sd(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` pounds of pollock landed per pound of cod killed (as discards or landings) (median: `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)`).
 
-```{r PolRat Plotting1, echo=FALSE, fig.height=3.5}
+```{r PolRat Plotting2, echo=FALSE, fig.height=3.5}
 z=subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE&is.na(CodD$POLRAT)==FALSE)$POLRAT
 hist(
   z,
@@ -1482,7 +1726,7 @@ abline(
 
 Assuming a 100% discard mortality rate, outside of the closed areas, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE)$POLRAT)` ± `r sd(subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE)$POLRAT)` pounds of pollock landed per pound of cod killed (as discards or landings) (median: `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE)$POLRAT)`).
 
-```{r PolRat Plotting1, echo=FALSE, fig.height=3.5}
+```{r PolRat Plotting3, echo=FALSE, fig.height=3.5}
 z=subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE&is.na(CodD$POLRAT)==FALSE)$POLRAT
 hist(
   z,
@@ -1509,55 +1753,232 @@ abline(
   lty=2
 )
 ```
-*Figure 8a -- Histogram of pollock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for jig vessels fishing outside of the closed areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality.*
+*Figure 8c -- Histogram of pollock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for jig vessels fishing outside of the closed areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality.*
 
   **2019 FISHING YEAR SUMMARY**
   
-*Table 2 -- Cod landings and discards (lbs) by stock. Cod quota is managed in two stocks: Georges Bank (GB) and the Gulf of Maine (GOM)*
+*Table 2 -- Groundfish landings and discards (lbs) by stock.*
 
-```{r CodStocks, echo=FALSE, results='asis'}
-STOCK=c("GB","GOM")
-DISCARDS=c(
+```{r Stocks, echo=FALSE, results='asis'}
+tab2=data.frame(
+  SPECIES=as.character(),
+  STOCK=as.character(),
+  LANDINGS=as.character(),
+  DISCARDS=as.character()
+)
+species="AMERICAN PLAICE"
+stock="ALL"
+landings=sum(
+  CodDiscards$l_PLAICE,
+  na.rm=TRUE
+  )
+discards=round(
   sum(
-    subset(
-      CodD,
-      CodD$STOCK=="GB"
-    )$CD
+    CodDiscards$d_PLAICE,
+    na.rm=TRUE
   ),
-  sum(
-    subset(
-      CodD,
-      CodD$STOCK=="GOM"
-    )$CD
-  )
+  0
 )
-LANDINGS=c(
+newline=data.frame(
+  SPECIES=species,
+  STOCK=stock,
+  LANDINGS=landings,
+  DISCARDS=discards
+)
+tab2=rbind(tab2,newline)
+################################################################################
+species="ATLANTIC COD"
+for(s in c("GB","GOM")){
+  x=subset(
+    CodDiscards,
+    CodDiscards$STOCK==s
+  )
+  landings=sum(
+    x$l_COD,
+    na.rm=TRUE
+  )
+  discards=round(
+    sum(
+      x$CD,
+      na.rm=TRUE
+    ),
+    0
+  )
+  newline=data.frame(
+    SPECIES=species,
+    STOCK=s,
+    LANDINGS=landings,
+    DISCARDS=discards
+  )
+  tab2=rbind(tab2,newline)
+  }
+################################################################################
+species="HADDOCK"
+for(s in c("GB","GOM")){
+  x=subset(
+    CodDiscards,
+    CodDiscards$s_HADDOCK==s
+  )
+  landings=sum(
+    x$l_HADDOCK,
+    na.rm=TRUE
+  )
+  discards=round(
+    sum(
+      x$d_HADDOCK,
+      na.rm=TRUE
+    ),
+    0
+  )
+  newline=data.frame(
+    SPECIES=species,
+    STOCK=s,
+    LANDINGS=landings,
+    DISCARDS=discards
+  )
+  tab2=rbind(tab2,newline)
+  }
+################################################################################
+species="POLLOCK"
+stock="ALL"
+landings=sum(
+  CodDiscards$l_POLLOCK,
+  na.rm=TRUE
+  )
+discards=round(
   sum(
-    subset(
-      CodD,
-      CodD$STOCK=="GB"
-    )$COD
+    CodDiscards$d_POLLOCK,
+    na.rm=TRUE
   ),
+  0
+)
+newline=data.frame(
+  SPECIES=species,
+  STOCK=stock,
+  LANDINGS=landings,
+  DISCARDS=discards
+)
+tab2=rbind(tab2,newline)
+################################################################################
+species="REDFISH"
+stock="ALL"
+landings=sum(
+  CodDiscards$l_REDFISH,
+  na.rm=TRUE
+  )
+discards=round(
   sum(
-    subset(
-      CodD,
-      CodD$STOCK=="GOM"
-    )$COD
-  )
+    CodDiscards$d_REDFISH,
+    na.rm=TRUE
+  ),
+  0
 )
-Cod=data.frame(
-  STOCK,
-  DISCARDS,
-  LANDINGS
+newline=data.frame(
+  SPECIES=species,
+  STOCK=stock,
+  LANDINGS=landings,
+  DISCARDS=discards
 )
-Cod$DISCARDS=round(Cod$DISCARDS,0)
-options(digits=0)
-nr=c(
-  "",
-  round(colSums(Cod[,2:3]),0)
+tab2=rbind(tab2,newline)
+################################################################################
+species="WHITE HAKE"
+stock="ALL"
+landings=sum(
+  CodDiscards$l_WHAKE,
+  na.rm=TRUE
   )
-Cod2=rbind(Cod,nr)
-options(digits=0)
-Cod2 %>% regulartable() %>% autofit() %>% set_formatter_type(Cod2,
+discards=round(
+  sum(
+    CodDiscards$d_WHAKE,
+    na.rm=TRUE
+  ),
+  0
+)
+newline=data.frame(
+  SPECIES=species,
+  STOCK=stock,
+  LANDINGS=landings,
+  DISCARDS=discards
+)
+tab2=rbind(tab2,newline)
+################################################################################
+species="WINTER FLOUNDER"
+for(s in c("GB","SNEMA")){
+  x=subset(
+    CodDiscards,
+    CodDiscards$s_WINFLO==s
+  )
+  landings=sum(
+    x$l_WINFLO,
+    na.rm=TRUE
+  )
+  discards=round(
+    sum(
+      x$d_WINFLO,
+      na.rm=TRUE
+    ),
+    0
+  )
+  newline=data.frame(
+    SPECIES=species,
+    STOCK=s,
+    LANDINGS=landings,
+    DISCARDS=discards
+  )
+  tab2=rbind(tab2,newline)
+  }
+################################################################################
+species="WITCH FLOUNDER"
+stock="ALL"
+landings=sum(
+  CodDiscards$l_WITFLO,
+  na.rm=TRUE
+  )
+discards=round(
+  sum(
+    CodDiscards$d_WITFLO,
+    na.rm=TRUE
+  ),
+  0
+)
+newline=data.frame(
+  SPECIES=species,
+  STOCK=stock,
+  LANDINGS=landings,
+  DISCARDS=discards
+)
+tab2=rbind(tab2,newline)
+################################################################################
+species="YELLOWTAIL FLOUNDER"
+for(s in c("GB","SNEMA","CCGOM")){
+  x=subset(
+    CodDiscards,
+    CodDiscards$s_YTFLO==s
+  )
+  landings=sum(
+    x$l_YTFLO,
+    na.rm=TRUE
+  )
+  discards=round(
+    sum(
+      x$d_YTFLO,
+      na.rm=TRUE
+    ),
+    0
+  )
+  newline=data.frame(
+    SPECIES=species,
+    STOCK=s,
+    LANDINGS=landings,
+    DISCARDS=discards
+  )
+  tab2=rbind(tab2,newline)
+  }
+################################################################################
+
+
+
+
+tab2 %>% regulartable() %>% autofit() %>% set_formatter_type(Cod2,
 fmt_double = "%.00f")
 ```
