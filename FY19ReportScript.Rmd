@@ -652,6 +652,7 @@ GB_WF=AllStocks[AllStocks$AREANAME=="GB Winter Flounder Stock Area"]
 ## NOTE: Pollock, White Hake, Witch Flounder, and American Plaice are all
 ## single stocks
 ## NOTE: Haddock are managed in the same stock areas as Cod (GOM and GB)
+##
 ## Remove the temporary files from the directory
 unlink("AllStocks.zip")
 unlink(
@@ -903,6 +904,7 @@ for(i in 1:nrow(CodDiscards)){
 CodDiscards$KALL=0
 CodDiscards$HADDOCK=0
 CodDiscards$COD=0
+CodDiscards$POLLOCK=0
 CodDiscards$LANDINGS_SOURCE=NA
 for(i in 1:nrow(CodDiscards)){
   l=subset(
@@ -958,6 +960,13 @@ for(i in 1:nrow(CodDiscards)){
     )$WEIGHT,
     na.rm=TRUE
   )
+  CodDiscards$POLLOCK[i]=sum(
+    subset(
+      l,
+      l$SPECIES=="POLLOCK"
+    )$WEIGHT,
+    na.rm=TRUE
+  )
   CodDiscards$COD[i]=sum(
     subset(
       l,
@@ -989,6 +998,13 @@ for(i in 1:nrow(CodDiscards)){
         subset(
           x,
           x$SPECIES=="HADDOCK"
+        )$KEPT
+      )
+      ## Calculate POLLOCK landings
+      CodDiscards$POLLOCK[i]=sum(
+        subset(
+          x,
+          x$SPECIES=="POLLOCK"
         )$KEPT
       )
       ## Calculate COD landings
@@ -1059,6 +1075,19 @@ for(i in 1:nrow(CodD)){
     }
   }
 }
+## Add Pollock:Cod ratio for Jiggers
+CodD$POLRAT=NA
+for(i in 1:nrow(CodD)){
+  if(is.na(CodD$GEAR[i])==FALSE){
+    if(CodD$GEAR[i]=="JIG"){
+      CodD$POLRAT[i]=ifelse(
+        (CodD$CD[i]+CodD$COD[i])==0,
+        CodD$POLLOCK[i],
+        CodD$POLLOCK[i]/(CodD$CD[i]+CodD$COD[i])
+      )
+    }
+  }
+}
 ```
 
 
@@ -1067,16 +1096,25 @@ This report covers trips taken between `r ceiling_date(min(iVTR$SAILDATE),unit="
 *Table 1a -- Trips taken exclusively in closed areas by vessels participating in the electronic monitoring program. Closed area abbreviations are as follows: Closed Area II (CAII), Cashes Ledge (CL), Western Gulf of Maine (WGOM). Trips in the "Out" column took place outside of closed areas.* 
   
 ```{r echo=FALSE, results='asis'}
-CAV$
+## Create a TOTAL row in the table
+CAV$VESSEL=as.character(CAV$VESSEL)
+CAV[,2]=as.numeric(CAV[,2])
+CAV[,3]=as.numeric(CAV[,3])
+CAV[,4]=as.numeric(CAV[,4])
+CAV[,5]=as.numeric(CAV[,5])
+nr=c("",colSums(CAV[,2:5]))
+CAV2=rbind(CAV,nr)
 options(digits=0)
-as.data.frame(CAV) %>% regulartable() %>% autofit()
+as.data.frame(CAV2) %>% regulartable() %>% autofit()
 ```
 
 *Table 1b -- Total trips taken and total trips audited through the EM program by each vessel in FY19. The target audit rate this year is 50%*
   
 ```{r echo=FALSE, results='asis'}
 options(digits=0)
-as.data.frame(CAA) %>% regulartable() %>% autofit()
+nr=c("",colSums(CAA[,2:3]))
+CAA2=rbind(CAA,nr)
+as.data.frame(CAA2) %>% regulartable() %>% autofit()
 ```
 
 ```{r Mapping, include=FALSE}
@@ -1097,12 +1135,12 @@ grays=c(
 basemap=getNOAA.bathy(
   lon1=-75, 
   lon2=-65, 
-  lat1=40, 
-  lat2=48, 
+  lat1=39.5, 
+  lat2=45, 
   resolution=1
   )
 ```
-```{r Map Plotting, echo=FALSE, fig.height=3.5}
+```{r Map Plotting, echo=FALSE, fig.height=8.5}
 ## Plot the bathymetric map as a background
 plot(
   basemap, 
@@ -1282,15 +1320,10 @@ barplot(
   
 _**Longlined Haddock**_
 
-Longline vessels participating in this project target haddock, fishing in open areas and in the Western Gulf of Maine closure. Assuming a 100% discard mortality rate, inside the Western Gulf of Maine closure, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed (as discards or landings) (median: `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)`). 
+Longline vessels participating in this project target haddock, fishing in open areas and in the closures. Assuming a 100% discard mortality rate, inside the Western Gulf of Maine closure, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed (as discards or landings) (median: `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)`). 
 
 ```{r HadRat Plotting1, echo=FALSE, fig.height=3.5}
 z=subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT
-z=ifelse(
-  z>1000,
-  1000,
-  z
-)
 hist(
   z,
   xlab="Haddock Landed : Cod Mortality Ratio (DM=100%)",
@@ -1298,10 +1331,10 @@ hist(
   ylab="Trips",
   xlim=c(
     0,
-    1000
+    3750
   ),
   col='darkgray',
-  breaks=seq(0,1000,10)
+  breaks=seq(0,3750,50)
   )
 abline(
   v=mean(
@@ -1317,17 +1350,12 @@ abline(
 )
 ```
 
-*Figure 7a -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in the Western Gulf of Maine closed area. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
+*Figure 7a -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in the Western Gulf of Maine closed area. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$WGOM==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality.*
   
 Assuming a 100% discard mortality rate, in the Cashes Ledge closure area, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed(as discards or landings)  (median: `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)`). 
 
 ```{r HadRat Plotting2, echo=FALSE, fig.height=3.5}
 z=subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT
-z=ifelse(
-  z>1000,
-  1000,
-  z
-)
 hist(
   z,
   xlab="Haddock Landed : Cod Mortality Ratio (DM=100%)",
@@ -1335,10 +1363,10 @@ hist(
   ylab="Trips",
   xlim=c(
     0,
-    1000
+    3750
   ),
   col='darkgray',
-  breaks=seq(0,1000,10)
+  breaks=seq(0,3750,50)
   )
 abline(
   v=mean(
@@ -1354,17 +1382,12 @@ abline(
 )
 ```
 
-*Figure 7b -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in the Cashes Ledge closed area. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
+*Figure 7b -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in the Cashes Ledge closed area. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$CL==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality.*
 
 Assuming a 100% discard mortality rate, in the open areas, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` ± `r sd(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` pounds of haddock landed per pound of cod killed(as discards or landings)  (median: `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)`). 
 
 ```{r HadRat Plotting3, echo=FALSE, fig.height=3.5}
 z=subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT
-z=ifelse(
-  z>1000,
-  1000,
-  z
-)
 hist(
   z,
   xlab="Haddock Landed : Cod Mortality Ratio (DM=100%)",
@@ -1372,10 +1395,10 @@ hist(
   ylab="Trips",
   xlim=c(
     0,
-    1000
+    3750
   ),
   col='darkgray',
-  breaks=seq(0,1000,10)
+  breaks=seq(0,3750,50)
   )
 abline(
   v=mean(
@@ -1391,8 +1414,103 @@ abline(
 )
 ```
 
-*Figure 7c -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in open areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality. NOTE: All ratios > 1000 lbs of haddock per lb of cod are displayed as 1000 in this graph.*
-  
+*Figure 7c -- Histogram of haddock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for longline vessels fishing in open areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="LONGLINE"&CodD$OUT==TRUE)$HADRAT)` lbs of haddock landed per pound of cod mortality.*
+
+_**Jigged Pollock**_
+
+Some jig vessels participating in this project target pollock, fishing in open areas and in the closures. Assuming a 100% discard mortality rate, inside the Western Gulf of Maine closure, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$WGOM==TRUE)$POLRAT)` ± `r sd(subset(CodD,CodD$GEAR=="JIG"&CodD$WGOM==TRUE)$POLRAT)` pounds of pollock landed per pound of cod killed (as discards or landings) (median: `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$WGOM==TRUE)$POLRAT)`).
+
+```{r PolRat Plotting1, echo=FALSE, fig.height=3.5}
+z=subset(CodD,CodD$GEAR=="JIG"&CodD$WGOM==TRUE&is.na(CodD$POLRAT)==FALSE)$POLRAT
+hist(
+  z,
+  xlab="Pollock Landed : Cod Mortality Ratio (DM=100%)",
+  main='',
+  ylab="Trips",
+  xlim=c(
+    0,
+    500
+  ),
+  col='darkgray',
+  breaks=seq(0,500,10)
+  )
+abline(
+  v=mean(
+    z
+  ),
+  lty=1
+)
+abline(
+  v=median(
+    z
+  ),
+  lty=2
+)
+```
+*Figure 8a -- Histogram of pollock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for jig vessels fishing in the Western Gulf of Maine closure. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$WGOM==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$WGOM==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality.*
+
+Assuming a 100% discard mortality rate, inside the Cashes Ledge closure, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` ± `r sd(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` pounds of pollock landed per pound of cod killed (as discards or landings) (median: `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)`).
+
+```{r PolRat Plotting1, echo=FALSE, fig.height=3.5}
+z=subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE&is.na(CodD$POLRAT)==FALSE)$POLRAT
+hist(
+  z,
+  xlab="Pollock Landed : Cod Mortality Ratio (DM=100%)",
+  main='',
+  ylab="Trips",
+  xlim=c(
+    0,
+    500
+  ),
+  col='darkgray',
+  breaks=seq(0,500,10)
+  )
+abline(
+  v=mean(
+    z
+  ),
+  lty=1
+)
+abline(
+  v=median(
+    z
+  ),
+  lty=2
+)
+```
+*Figure 8b -- Histogram of pollock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for jig vessels fishing in the Cashes Ledge closure. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality.*
+
+Assuming a 100% discard mortality rate, outside of the closed areas, harvesters averaged `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE)$POLRAT)` ± `r sd(subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE)$POLRAT)` pounds of pollock landed per pound of cod killed (as discards or landings) (median: `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE)$POLRAT)`).
+
+```{r PolRat Plotting1, echo=FALSE, fig.height=3.5}
+z=subset(CodD,CodD$GEAR=="JIG"&CodD$OUT==TRUE&is.na(CodD$POLRAT)==FALSE)$POLRAT
+hist(
+  z,
+  xlab="Pollock Landed : Cod Mortality Ratio (DM=100%)",
+  main='',
+  ylab="Trips",
+  xlim=c(
+    0,
+    500
+  ),
+  col='darkgray',
+  breaks=seq(0,500,10)
+  )
+abline(
+  v=mean(
+    z
+  ),
+  lty=1
+)
+abline(
+  v=median(
+    z
+  ),
+  lty=2
+)
+```
+*Figure 8a -- Histogram of pollock landed (lbs) : cod mortality (lbs of discards + lbs of landings) ratio for jig vessels fishing outside of the closed areas. The average ratio (solid black line) was `r mean(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality and the median ratio (dashed black line) was `r median(subset(CodD,CodD$GEAR=="JIG"&CodD$CL==TRUE)$POLRAT)` lbs of pollock landed per pound of cod mortality.*
+
   **2019 FISHING YEAR SUMMARY**
   
 *Table 2 -- Cod landings and discards (lbs) by stock. Cod quota is managed in two stocks: Georges Bank (GB) and the Gulf of Maine (GOM)*
@@ -1432,7 +1550,14 @@ Cod=data.frame(
   DISCARDS,
   LANDINGS
 )
+Cod$DISCARDS=round(Cod$DISCARDS,0)
 options(digits=0)
-Cod %>% regulartable() %>% autofit() %>% set_formatter_type(Cod,
+nr=c(
+  "",
+  round(colSums(Cod[,2:3]),0)
+  )
+Cod2=rbind(Cod,nr)
+options(digits=0)
+Cod2 %>% regulartable() %>% autofit() %>% set_formatter_type(Cod2,
 fmt_double = "%.00f")
 ```
